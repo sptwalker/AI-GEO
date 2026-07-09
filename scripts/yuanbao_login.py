@@ -52,7 +52,10 @@ def main() -> None:
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto(url)
         input("\n>>> 在浏览器里完成登录后，回到这里按【回车】保存并退出...")
-        ctx.close()
+        try:
+            ctx.close()
+        except Exception:  # noqa: BLE001 手动关窗口会致 close 报错，登录态已落盘，忽略即可
+            pass
     print("登录态已保存，之后适配器会无头复用。")
 
 

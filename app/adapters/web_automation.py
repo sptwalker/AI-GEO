@@ -60,7 +60,9 @@ class WebAutomationAdapter(BaseAdapter):
                     )
                     try:
                         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-                        await page.goto(url, timeout=int(timeout * 1000))
+                        await page.goto(
+                            url, timeout=int(timeout * 1000), wait_until="domcontentloaded"
+                        )
                         # 若配置了登录标识且可见，说明登录态失效
                         if login_sel and await page.locator(login_sel).count() > 0:
                             if await page.locator(login_sel).first.is_visible():
