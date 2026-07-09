@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    <h5>标准答案（{{ rows|length }}）</h5>
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>题目</th><th>标准答案</th><th>版本</th><th>来源</th><th></th></tr></thead>
+    <tbody>
+    {% for ans, q in rows %}
+    <tr>
+      <td style="max-width:260px">{{ q.content }}</td>
+      <td>{{ ans.content }}</td>
+      <td>v{{ ans.version }}</td>
+      <td class="small">{{ ans.source or '' }}</td>
+      <td><form method="post" action="/answers/{{ ans.id }}/delete" onsubmit="return confirm('删除？')"><button class="btn btn-link btn-sm text-danger p-0">删除</button></form></td>
+    </tr>
+    {% else %}<tr><td colspan="5" class="text-muted">暂无标准答案</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  <div class="col-lg-4">
+    <div class="card card-body">
+      <h6>录入 / 更新标准答案</h6>
+      <form method="post" action="/answers/save">
+        <select class="form-select mb-2" name="question_id" required>
+          <option value="">选择题目…</option>
+          {% for x in questions %}<option value="{{ x.id }}">#{{ x.id }} {{ x.content[:40] }}</option>{% endfor %}
+        </select>
+        <textarea class="form-control mb-2" name="content" rows="4" placeholder="权威答案" required></textarea>
+        <input class="form-control mb-2" name="source" placeholder="来源（可选）">
+        <button class="btn btn-primary w-100">保存（更新则版本 +1）</button>
+      </form>
+      <p class="text-muted small mt-2 mb-0">同一题目再次保存会将旧答案归档、生成新版本作为当前权威口径。</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

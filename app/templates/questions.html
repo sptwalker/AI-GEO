@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="mb-0">题库（{{ questions|length }}）</h5>
+      <form class="d-flex gap-2" method="get">
+        <input class="form-control form-control-sm" name="q" value="{{ q }}" placeholder="搜索问题">
+        <select class="form-select form-select-sm" name="category" onchange="this.form.submit()">
+          <option value="">全部分类</option>
+          {% for c in cats %}<option value="{{ c }}" {{ 'selected' if c==category }}>{{ c }}</option>{% endfor %}
+        </select>
+        <button class="btn btn-sm btn-primary">搜索</button>
+      </form>
+    </div>
+    {% if imported is not none %}<div class="alert alert-success py-2">导入完成：新增 {{ imported }}，跳过 {{ skipped }}，失败 {{ failed }}</div>{% endif %}
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>ID</th><th>问题</th><th>分类</th><th>启用</th><th></th></tr></thead>
+    <tbody>
+    {% for x in questions %}
+    <tr>
+      <td>{{ x.id }}</td>
+      <td>{{ x.content }}</td>
+      <td>{{ x.category or '' }}</td>
+      <td>{{ '✅' if x.enabled else '⛔' }}</td>
+      <td class="text-nowrap">
+        <button class="btn btn-link btn-sm p-0" data-bs-toggle="collapse" data-bs-target="#edit{{ x.id }}">编辑</button>
+        <form method="post" action="/questions/{{ x.id }}/delete" class="d-inline" onsubmit="return confirm('删除该问题？')">
+          <button class="btn btn-link btn-sm p-0 text-danger">删除</button>
+        </form>
+      </td>
+    </tr>
+    <tr class="collapse" id="edit{{ x.id }}"><td colspan="5">
+      <form method="post" action="/questions/{{ x.id }}/edit" class="row g-2">
+        <div class="col-12"><textarea class="form-control" name="content" rows="2" required>{{ x.content }}</textarea></div>
+        <div class="col"><input class="form-control" name="category" value="{{ x.category or '' }}" placeholder="分类"></div>
+        <div class="col"><input class="form-control" name="product" value="{{ x.product or '' }}" placeholder="产品"></div>
+        <div class="col"><input class="form-control" name="remark" value="{{ x.remark or '' }}" placeholder="备注"></div>
+        <div class="col-auto"><label class="btn btn-outline-secondary"><input type="checkbox" name="enabled" {{ 'checked' if x.enabled }}> 启用</label></div>
+        <div class="col-auto"><button class="btn btn-primary">保存</button></div>
+      </form>
+    </td></tr>
+    {% else %}<tr><td colspan="5" class="text-muted">暂无题目</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  <div class="col-lg-4">
+    <div class="card card-body mb-3">
+      <h6>新增单题</h6>
+      <form method="post" action="/questions/add">
+        <textarea class="form-control mb-2" name="content" rows="2" placeholder="问题内容" required></textarea>
+        <input class="form-control mb-2" name="category" placeholder="分类（可选）">
+        <input class="form-control mb-2" name="product" placeholder="产品（可选）">
+        <button class="btn btn-primary w-100">添加</button>
+      </form>
+    </div>
+    <div class="card card-body">
+      <h6>批量导入</h6>
+      <form method="post" action="/questions/import" enctype="multipart/form-data">
+        <textarea class="form-control mb-2" name="text" rows="4" placeholder="每行一个问题"></textarea>
+        <div class="text-muted small mb-1">或上传 CSV / JSON（列：content,category,product,remark）</div>
+        <input class="form-control mb-2" type="file" name="file" accept=".csv,.json,.txt">
+        <button class="btn btn-success w-100">导入</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

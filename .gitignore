@@ -19,6 +19,7 @@ user-data-dir/
 # Logs & local data
 *.log
 logs/
+*.db
 
 # OS / IDE
 .DS_Store

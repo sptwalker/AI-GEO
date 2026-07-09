@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h5>模型配置</h5>
+<p class="text-muted small">密钥通过环境变量配置（见 .env）。base_url / model_name 以各家官方文档为准；未配置密钥的模型即使启用也会被自动跳过。</p>
+<div class="row g-3">
+{% for m in models %}
+<div class="col-md-6">
+  <form method="post" action="/models/{{ m.id }}/save" class="card card-body">
+    <div class="d-flex justify-content-between">
+      <div><strong>{{ m.display_name }}</strong> <span class="text-muted small">{{ m.model_key }} · {{ m.adapter_type }}</span></div>
+      <div>{% if key_status[m.id] %}<span class="badge text-bg-success">密钥已配置</span>{% else %}<span class="badge text-bg-secondary">密钥未配置</span>{% endif %}</div>
+    </div>
+    {% if m.adapter_type != 'web_automation' %}
+    <div class="row g-2 mt-1">
+      <div class="col-12"><input class="form-control form-control-sm" name="base_url" value="{{ m.base_url or '' }}" placeholder="base_url"></div>
+      <div class="col-8"><input class="form-control form-control-sm" name="model_name" value="{{ m.model_name or '' }}" placeholder="model_name"></div>
+      <div class="col-4"><input class="form-control form-control-sm" name="concurrency" value="{{ m.concurrency }}" placeholder="并发"></div>
+    </div>
+    {% else %}
+    <div class="text-muted small mt-1">网页自动化适配器（二期 Playwright 实现）</div>
+    <input type="hidden" name="base_url" value="{{ m.base_url or '' }}">
+    <input type="hidden" name="model_name" value="{{ m.model_name or '' }}">
+    <input type="hidden" name="concurrency" value="{{ m.concurrency }}">
+    {% endif %}
+    <div class="d-flex justify-content-between align-items-center mt-2">
+      <label class="form-check-label"><input type="checkbox" class="form-check-input me-1" name="enabled" {{ 'checked' if m.enabled }}>启用</label>
+      <button class="btn btn-sm btn-primary">保存</button>
+    </div>
+  </form>
+</div>
+{% endfor %}
+</div>
+{% endblock %}

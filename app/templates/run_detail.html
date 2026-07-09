@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="/runs" class="btn btn-sm btn-outline-secondary mb-2">← 返回</a>
+<h5>批次 #{{ batch.id }} · {{ batch.name }}</h5>
+<p>
+  状态 <span class="badge text-bg-{{ 'success' if batch.status=='done' else 'danger' if batch.status=='failed' else 'secondary' }}">{{ batch.status }}</span>
+  · 总 {{ batch.total }} · 成功 {{ batch.success_count }} · 失败 {{ batch.fail_count }} · 报警 {{ batch.alert_count }}
+  {% if batch.status in ['pending','running'] %}&nbsp;<a class="btn btn-sm btn-outline-primary" href="/runs/{{ batch.id }}">刷新</a> <span class="text-muted small">运行中，可刷新查看进度</span>{% endif %}
+</p>
+<table class="table table-sm bg-white align-middle">
+<thead><tr><th>模型</th><th>问题</th><th>回答</th><th>状态</th><th>判定</th><th>污染/偏差</th><th>分</th></tr></thead>
+<tbody>
+{% for log in logs %}
+<tr>
+  <td class="small">{{ model_names.get(log.model_id, log.model_id) }}</td>
+  <td class="small" style="max-width:220px">{{ log.question_snapshot }}</td>
+  <td class="small" style="max-width:360px">{% if log.status=='success' %}{{ log.answer_text }}{% else %}<span class="text-danger">{{ log.error_msg }}</span>{% endif %}</td>
+  <td>{{ '✅' if log.status=='success' else '❌' }}</td>
+  {% if log.eval %}
+  <td><span class="badge text-bg-{{ 'success' if log.eval.verdict=='pass' else 'danger' if log.eval.verdict=='fail' else 'warning' }}">{{ log.eval.verdict }}{{ '·人工' if log.eval.overridden }}</span></td>
+  <td class="small">{{ log.eval.pollution_level }} / {{ log.eval.deviation_level }}</td>
+  <td>{{ log.eval.correctness_score }}</td>
+  {% else %}<td colspan="3" class="text-muted small">—</td>{% endif %}
+</tr>
+{% else %}<tr><td colspan="7" class="text-muted">暂无记录（可能仍在运行，稍后刷新）</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
