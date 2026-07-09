@@ -6,6 +6,7 @@
 import json
 
 from app.services.eval_service import parse_eval
+from app.services.export_service import LOG_HEADER, build_csv
 from app.services.import_service import _norm, parse_rows
 from app.services.notify_service import gen_sign
 
@@ -65,6 +66,15 @@ def test_validate_cron():
     assert validate_cron("*/30 * * * *")
     assert not validate_cron("bad cron")
     assert not validate_cron("99 99 * * *")
+
+
+def test_build_csv_bom_and_rows():
+    # 带 UTF-8 BOM（Excel 中文不乱码）、含表头与数据、逗号被正确转义
+    data = build_csv(LOG_HEADER, [["2026-01-01 09:00", "DeepSeek", "问,含逗号", "答", "success", "pass", "none", "none", 90, 3]])
+    assert data.startswith("﻿".encode("utf-8"))
+    text = data.decode("utf-8-sig")
+    assert "时间,模型" in text and "DeepSeek" in text
+    assert '"问,含逗号"' in text  # csv 对逗号字段加引号
 
 
 if __name__ == "__main__":

@@ -24,16 +24,21 @@
       {% endif %}
     </div>
     {% else %}
-    <div class="text-muted small mt-1">网页自动化适配器（二期 Playwright 实现）</div>
-    <input type="hidden" name="base_url" value="{{ m.base_url or '' }}">
-    <input type="hidden" name="model_name" value="{{ m.model_name or '' }}">
-    <input type="hidden" name="concurrency" value="{{ m.concurrency }}">
+    <div class="mt-1 small text-muted">网页自动化（Playwright）· 首次登录：<code>python -m scripts.yuanbao_login</code></div>
+    <div class="row g-2 mt-1">
+      <div class="col-12"><input class="form-control form-control-sm" name="wa_url" value="{{ (m.config or {}).get('url') or '' }}" placeholder="聊天页 url，如 https://yuanbao.tencent.com/chat"></div>
+      <div class="col-6"><input class="form-control form-control-sm" name="wa_input" value="{{ (m.config or {}).get('input_selector') or 'textarea' }}" placeholder="输入框选择器"></div>
+      <div class="col-6"><input class="form-control form-control-sm" name="wa_send" value="{{ (m.config or {}).get('send_selector') or '' }}" placeholder="发送按钮选择器(留空=回车)"></div>
+      <div class="col-6"><input class="form-control form-control-sm" name="wa_answer" value="{{ (m.config or {}).get('answer_selector') or '' }}" placeholder="回答元素选择器"></div>
+      <div class="col-6"><input class="form-control form-control-sm" name="wa_login" value="{{ (m.config or {}).get('login_selector') or '' }}" placeholder="登录标识选择器(可选)"></div>
+      <div class="col-12"><label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" name="wa_headless" {{ 'checked' if (m.config or {}).get('headless', True) }}>无头运行（调试时可取消以看到浏览器）</label></div>
+    </div>
     {% endif %}
     <div class="d-flex justify-content-between align-items-center mt-2">
       <label class="form-check-label"><input type="checkbox" class="form-check-input me-1" name="enabled" {{ 'checked' if m.enabled }}>启用</label>
       <div class="d-flex align-items-center gap-2">
         <span class="test-result small"></span>
-        {% if m.adapter_type != 'web_automation' %}<button type="button" class="btn btn-sm btn-outline-info" onclick="testModel('{{ m.id }}', this)">测试</button>{% endif %}
+        <button type="button" class="btn btn-sm btn-outline-info" onclick="testModel('{{ m.id }}', this)">测试</button>
         <button class="btn btn-sm btn-primary">保存</button>
       </div>
     </div>

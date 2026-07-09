@@ -65,7 +65,7 @@ tests/test_core.py   关键逻辑自测
 | M0 | 设计文档 | ✅ |
 | M1 | MVP 核心闭环（导入→提问→判定→查询）| ✅ |
 | M2 | 定时自动运行 + 飞书报警 + 仪表盘增强 | ✅ |
-| M3 | 元宝等网页端自动化（Playwright）+ 健壮性 + 导出 | ⏳ |
+| M3 | 元宝等网页端自动化（Playwright）+ CSV 导出 + 健壮性 | ✅ |
 | M4 | 多用户 / 迁移 / 趋势分析 | ⏳ |
 
 ## 定时自动运行 + 报警（M2）
@@ -73,6 +73,17 @@ tests/test_core.py   关键逻辑自测
 - 单进程内嵌调度：设 `RUN_SCHEDULER=true` 启动应用即自动跑 `/schedules` 里配置的 cron 任务。
 - 报警走飞书自定义群机器人：配 `ALERT_WEBHOOK_URL`（可选 `ALERT_WEBHOOK_SECRET` 加签）；批次命中 `fail`/严重污染即推送汇总。
 - 仪表盘含分模型判定统计与近 7 天趋势。
+
+## 网页自动化 + 导出（M3）
+
+- **元宝等无 API 模型**：用 Playwright 持久化登录态。首次登录：
+  ```bash
+  pip install playwright && playwright install chromium
+  # 先在「模型配置」页给 yuanbao 填 url 与 answer_selector 并保存
+  python -m scripts.yuanbao_login          # 打开浏览器手动登录一次
+  ```
+  之后适配器无头复用登录态。选择器（输入框/发送/回答）均在模型配置页填写，可用卡片「测试」按钮验证连通。
+- **CSV 导出**：`/logs` 按当前筛选导出、`/runs/{id}` 导出单批次，带 BOM，Excel 直接打开。
 
 ## 说明
 

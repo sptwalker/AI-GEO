@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ from app.adapters.registry import get_enabled_adapters
 from app.auth import require_user
 from app.database import get_db
 from app.models import LLMModel, QALog, Question, RunBatch
-from app.services import ask_service
+from app.services import ask_service, export_service
 from app.services.ask_service import run_batch_job
 from app.templating import templates
 
@@ -85,4 +85,20 @@ def run_detail(request: Request, bid: int, db: Session = Depends(get_db)):
     model_names = {m.id: m.display_name for m in db.scalars(select(LLMModel))}
     return templates.TemplateResponse(
         request, "run_detail.html", {"batch": batch, "logs": logs, "model_names": model_names}
+    )
+
+
+@router.get("/runs/{bid}/export")
+def export_batch(bid: int, db: Session = Depends(get_db)):
+    """导出某批次全部问答+判定为 CSV。"""
+    logs = list(db.scalars(select(QALog).where(QALog.batch_id == bid).order_by(QALog.id)))
+    names = {m.id: m.display_name for m in db.scalars(select(LLMModel))}
+    data = export_service.build_csv(
+        export_service.LOG_HEADER, export_service.qalog_rows(logs, names)
+    )
+    fname = f"ai-geo-batch{bid}-{datetime.now():%Y%m%d-%H%M%S}.csv"
+    return Response(
+        content=data,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )

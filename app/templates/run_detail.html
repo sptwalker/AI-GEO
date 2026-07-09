@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <a href="/runs" class="btn btn-sm btn-outline-secondary mb-2">← 返回</a>
+<a href="/runs/{{ batch.id }}/export" class="btn btn-sm btn-outline-success mb-2">导出 CSV</a>
 <h5>批次 #{{ batch.id }} · {{ batch.name }}</h5>
 <p>
   状态 <span class="badge text-bg-{{ 'success' if batch.status=='done' else 'danger' if batch.status=='failed' else 'secondary' }}">{{ batch.status }}</span>

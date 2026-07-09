@@ -4,18 +4,20 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
 from app.models import EvalResult, LLMModel, QALog
+from app.services import export_service
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
 
 PAGE_SIZE = 50
+EXPORT_CAP = 10000  # ponytail: 导出上限，防一次拉爆内存；超量再做分页/流式导出
 
 
 def _parse_date(s: str) -> datetime | None:
@@ -27,19 +29,8 @@ def _parse_date(s: str) -> datetime | None:
         return None
 
 
-@router.get("/logs")
-def query_logs(
-    request: Request,
-    db: Session = Depends(get_db),
-    question: str = "",
-    model_id: str = "",
-    date_from: str = "",
-    date_to: str = "",
-    verdict: str = "",
-    pollution: str = "",
-    page: int = 1,
-):
-    page = max(1, page)
+def _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution):
+    """构建带筛选的 QALog 查询（查询页与导出共用，保证口径一致）。"""
     stmt = select(QALog).order_by(QALog.id.desc())
     if question:
         stmt = stmt.where(QALog.question_snapshot.contains(question))
@@ -56,7 +47,23 @@ def query_logs(
             stmt = stmt.where(EvalResult.verdict == verdict)
         if pollution:
             stmt = stmt.where(EvalResult.pollution_level == pollution)
+    return stmt
 
+
+@router.get("/logs")
+def query_logs(
+    request: Request,
+    db: Session = Depends(get_db),
+    question: str = "",
+    model_id: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    verdict: str = "",
+    pollution: str = "",
+    page: int = 1,
+):
+    page = max(1, page)
+    stmt = _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution)
     logs = list(db.scalars(stmt.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE)))
     models = list(db.scalars(select(LLMModel).order_by(LLMModel.id)))
     return templates.TemplateResponse(
@@ -77,6 +84,31 @@ def query_logs(
             "page": page,
             "has_next": len(logs) == PAGE_SIZE,
         },
+    )
+
+
+@router.get("/logs/export")
+def export_logs(
+    db: Session = Depends(get_db),
+    question: str = "",
+    model_id: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    verdict: str = "",
+    pollution: str = "",
+):
+    """按当前筛选导出 CSV（带 BOM，Excel 直接打开）。"""
+    stmt = _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution)
+    logs = list(db.scalars(stmt.limit(EXPORT_CAP)))
+    names = {m.id: m.display_name for m in db.scalars(select(LLMModel))}
+    data = export_service.build_csv(
+        export_service.LOG_HEADER, export_service.qalog_rows(logs, names)
+    )
+    fname = f"ai-geo-logs-{datetime.now():%Y%m%d-%H%M%S}.csv"
+    return Response(
+        content=data,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
 
 

@@ -19,8 +19,8 @@
   </select></div>
   <div class="col-md-1"><button class="btn btn-sm btn-primary w-100">查询</button></div>
 </form>
-
 {% set qs = "question=" ~ f.question ~ "&model_id=" ~ f.model_id ~ "&date_from=" ~ f.date_from ~ "&date_to=" ~ f.date_to ~ "&verdict=" ~ f.verdict ~ "&pollution=" ~ f.pollution %}
+<div class="mb-2"><a class="btn btn-sm btn-outline-success" href="/logs/export?{{ qs }}">导出 CSV（按当前筛选）</a></div>
 <table class="table table-sm bg-white align-middle">
 <thead><tr><th>时间</th><th>模型</th><th>问题</th><th>回答</th><th>判定</th><th>污染/偏差</th><th>分</th><th>复核</th></tr></thead>
 <tbody>

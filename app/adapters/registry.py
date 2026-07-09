@@ -10,15 +10,16 @@ import os
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.adapters.base import BaseAdapter, WebAutomationAdapter
+from app.adapters.base import BaseAdapter
 from app.adapters.openai_compatible import OpenAICompatibleAdapter
+from app.adapters.web_automation import WebAutomationAdapter
 from app.models import LLMModel
 
 
 def build_adapter(model: LLMModel) -> BaseAdapter | None:
     """按模型配置构建适配器；缺密钥/未知类型返回 None（跳过该模型）。"""
     if model.adapter_type == "web_automation":
-        return WebAutomationAdapter(model.model_key, model.model_name)
+        return WebAutomationAdapter(model.model_key, model.model_name, model.config)
     if model.adapter_type == "openai_compatible":
         cfg = model.config or {}
         # 密钥优先取页面保存到 DB(config) 的值，回退到环境变量

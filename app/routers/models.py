@@ -42,26 +42,46 @@ def save_model(
     concurrency: str = Form("4"),
     api_key: str = Form(""),
     clear_key: str = Form("off"),
+    # 网页自动化（元宝）配置
+    wa_url: str = Form(""),
+    wa_input: str = Form(""),
+    wa_send: str = Form(""),
+    wa_answer: str = Form(""),
+    wa_login: str = Form(""),
+    wa_headless: str = Form("off"),
     db: Session = Depends(get_db),
 ):
     m = db.get(LLMModel, mid)
     if m:
         m.enabled = enabled == "on"
-        m.base_url = base_url or None
-        m.model_name = model_name or None
-        try:
-            m.concurrency = max(1, int(concurrency))
-        except ValueError:
-            pass
-        # 密钥：填了则更新；勾选清除则删除；都没有则保持不变（避免保存其它字段时误清空）
-        # JSON 列需整体赋新对象，SQLAlchemy 才能侦测到变更
         cfg = dict(m.config or {})
-        if clear_key == "on":
-            cfg.pop("api_key", None)
+        if m.adapter_type == "web_automation":
+            # 元宝：保存选择器等到 config（空值也保存，方便清空）
+            cfg.update(
+                {
+                    "url": wa_url.strip() or None,
+                    "input_selector": wa_input.strip() or "textarea",
+                    "send_selector": wa_send.strip() or None,
+                    "answer_selector": wa_answer.strip() or None,
+                    "login_selector": wa_login.strip() or None,
+                    "headless": wa_headless == "on",
+                }
+            )
             m.config = cfg
-        elif api_key.strip():
-            cfg["api_key"] = api_key.strip()
-            m.config = cfg
+        else:
+            m.base_url = base_url or None
+            m.model_name = model_name or None
+            try:
+                m.concurrency = max(1, int(concurrency))
+            except ValueError:
+                pass
+            # 密钥：填了则更新；勾选清除则删除；都没有则保持不变
+            if clear_key == "on":
+                cfg.pop("api_key", None)
+                m.config = cfg
+            elif api_key.strip():
+                cfg["api_key"] = api_key.strip()
+                m.config = cfg
         db.commit()
     return RedirectResponse("/models", status_code=303)
 
@@ -82,7 +102,16 @@ def test_model(
     if m is None:
         return {"ok": False, "msg": "模型不存在"}
     if m.adapter_type == "web_automation":
-        return {"ok": False, "msg": "网页自动化适配器为二期（Playwright）实现，暂不支持测试"}
+        from app.adapters.web_automation import WebAutomationAdapter
+
+        if not (m.config or {}).get("url") or not (m.config or {}).get("answer_selector"):
+            return {"ok": False, "msg": "元宝未配置：需填写 url 与 answer_selector 并保存后再测"}
+        adapter = WebAutomationAdapter(m.model_key, m.model_name, m.config)
+        result = asyncio.run(adapter.ask("连通测试，请回复：OK", timeout=45))
+        if result.status == "success":
+            snippet = (result.answer_text or "").strip().replace("\n", " ")[:40]
+            return {"ok": True, "msg": f"连通 {result.latency_ms}ms · 回复：{snippet}"}
+        return {"ok": False, "msg": f"失败：{(result.error_msg or '未知错误')[:120]}"}
 
     cfg = m.config or {}
     key = api_key.strip() or cfg.get("api_key") or os.getenv(m.api_key_env or "", "")
