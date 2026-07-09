@@ -20,10 +20,12 @@ def build_adapter(model: LLMModel) -> BaseAdapter | None:
     if model.adapter_type == "web_automation":
         return WebAutomationAdapter(model.model_key, model.model_name)
     if model.adapter_type == "openai_compatible":
-        api_key = os.getenv(model.api_key_env or "", "")
+        cfg = model.config or {}
+        # 密钥优先取页面保存到 DB(config) 的值，回退到环境变量
+        api_key = cfg.get("api_key") or os.getenv(model.api_key_env or "", "")
         if not api_key or not model.base_url or not model.model_name:
             return None
-        extra = (model.config or {}).get("extra_headers")
+        extra = cfg.get("extra_headers")
         return OpenAICompatibleAdapter(
             model.model_key, model.base_url, api_key, model.model_name, extra
         )

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h5>模型配置</h5>
-<p class="text-muted small">密钥通过环境变量配置（见 .env）。base_url / model_name 以各家官方文档为准；未配置密钥的模型即使启用也会被自动跳过。</p>
+<p class="text-muted small">密钥可在卡片内直接填写（保存到数据库），或用环境变量 <code>*_API_KEY</code> 配置；两者都配时以卡片填写的为准。base_url / model_name 以各家官方文档为准；未配置密钥的模型即使启用也会被自动跳过。</p>
 <div class="row g-3">
 {% for m in models %}
 <div class="col-md-6">
@@ -15,6 +15,13 @@
       <div class="col-12"><input class="form-control form-control-sm" name="base_url" value="{{ m.base_url or '' }}" placeholder="base_url"></div>
       <div class="col-8"><input class="form-control form-control-sm" name="model_name" value="{{ m.model_name or '' }}" placeholder="model_name"></div>
       <div class="col-4"><input class="form-control form-control-sm" name="concurrency" value="{{ m.concurrency }}" placeholder="并发"></div>
+      <div class="col-12">
+        <input class="form-control form-control-sm" type="password" name="api_key" autocomplete="off"
+               placeholder="{{ '已保存密钥 · 留空则不变，如需更换请输入新值' if key_saved[m.id] else '粘贴 API Key（也可用环境变量 ' ~ (m.api_key_env or '') ~ '）' }}">
+      </div>
+      {% if key_saved[m.id] %}
+      <div class="col-12"><label class="form-check-label small text-muted"><input type="checkbox" class="form-check-input me-1" name="clear_key">清除已保存的密钥</label></div>
+      {% endif %}
     </div>
     {% else %}
     <div class="text-muted small mt-1">网页自动化适配器（二期 Playwright 实现）</div>

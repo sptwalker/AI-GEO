@@ -19,9 +19,15 @@ router = APIRouter(dependencies=[Depends(require_user)])
 @router.get("/models")
 def list_models(request: Request, db: Session = Depends(get_db)):
     models = list(db.scalars(select(LLMModel).order_by(LLMModel.id)))
-    key_status = {m.id: bool(os.getenv(m.api_key_env or "", "")) for m in models}
+    # key_saved: 页面已存到 DB 的密钥；key_status: 综合(DB 或环境变量)是否已配置
+    key_saved = {m.id: bool((m.config or {}).get("api_key")) for m in models}
+    key_status = {
+        m.id: key_saved[m.id] or bool(os.getenv(m.api_key_env or "", "")) for m in models
+    }
     return templates.TemplateResponse(
-        request, "models.html", {"models": models, "key_status": key_status}
+        request,
+        "models.html",
+        {"models": models, "key_status": key_status, "key_saved": key_saved},
     )
 
 
@@ -32,6 +38,8 @@ def save_model(
     base_url: str = Form(""),
     model_name: str = Form(""),
     concurrency: str = Form("4"),
+    api_key: str = Form(""),
+    clear_key: str = Form("off"),
     db: Session = Depends(get_db),
 ):
     m = db.get(LLMModel, mid)
@@ -43,5 +51,14 @@ def save_model(
             m.concurrency = max(1, int(concurrency))
         except ValueError:
             pass
+        # 密钥：填了则更新；勾选清除则删除；都没有则保持不变（避免保存其它字段时误清空）
+        # JSON 列需整体赋新对象，SQLAlchemy 才能侦测到变更
+        cfg = dict(m.config or {})
+        if clear_key == "on":
+            cfg.pop("api_key", None)
+            m.config = cfg
+        elif api_key.strip():
+            cfg["api_key"] = api_key.strip()
+            m.config = cfg
         db.commit()
     return RedirectResponse("/models", status_code=303)
