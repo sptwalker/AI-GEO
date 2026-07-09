@@ -31,10 +31,38 @@
     {% endif %}
     <div class="d-flex justify-content-between align-items-center mt-2">
       <label class="form-check-label"><input type="checkbox" class="form-check-input me-1" name="enabled" {{ 'checked' if m.enabled }}>启用</label>
-      <button class="btn btn-sm btn-primary">保存</button>
+      <div class="d-flex align-items-center gap-2">
+        <span class="test-result small"></span>
+        {% if m.adapter_type != 'web_automation' %}<button type="button" class="btn btn-sm btn-outline-info" onclick="testModel('{{ m.id }}', this)">测试</button>{% endif %}
+        <button class="btn btn-sm btn-primary">保存</button>
+      </div>
     </div>
   </form>
 </div>
 {% endfor %}
 </div>
+<script>
+// 连通测试：读取所在卡片的当前值 POST 到 /models/{id}/test，把结果显示在卡片上（无需先保存）
+async function testModel(id, btn) {
+  const form = btn.closest('form');
+  const out = form.querySelector('.test-result');
+  const data = new URLSearchParams();
+  ['base_url', 'model_name', 'api_key'].forEach(n => {
+    const el = form.querySelector(`[name="${n}"]`);
+    if (el) data.append(n, el.value);
+  });
+  out.textContent = '测试中…'; out.className = 'test-result small text-muted';
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/models/${id}/test`, {method: 'POST', body: data});
+    const j = await r.json();
+    out.textContent = (j.ok ? '✅ ' : '❌ ') + j.msg;
+    out.className = 'test-result small ' + (j.ok ? 'text-success' : 'text-danger');
+  } catch (e) {
+    out.textContent = '❌ 请求失败'; out.className = 'test-result small text-danger';
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
 {% endblock %}

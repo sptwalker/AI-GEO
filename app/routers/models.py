@@ -1,6 +1,7 @@
-"""模型配置：启停、base_url / model_name / 并发。密钥只显示是否已配置。"""
+"""模型配置：启停、base_url / model_name / 并发、密钥、连通测试。"""
 from __future__ import annotations
 
+import asyncio
 import os
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -8,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.adapters.openai_compatible import OpenAICompatibleAdapter
 from app.auth import require_user
 from app.database import get_db
 from app.models import LLMModel
@@ -62,3 +64,36 @@ def save_model(
             m.config = cfg
         db.commit()
     return RedirectResponse("/models", status_code=303)
+
+
+@router.post("/models/{mid}/test")
+def test_model(
+    mid: int,
+    base_url: str = Form(""),
+    model_name: str = Form(""),
+    api_key: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """连通测试：用卡片当前值（回退已存配置/环境变量）发一条最小提问，返回结果 JSON。
+
+    便于保存前先验证。前端用 fetch 调用并把结果显示在卡片上。
+    """
+    m = db.get(LLMModel, mid)
+    if m is None:
+        return {"ok": False, "msg": "模型不存在"}
+    if m.adapter_type == "web_automation":
+        return {"ok": False, "msg": "网页自动化适配器为二期（Playwright）实现，暂不支持测试"}
+
+    cfg = m.config or {}
+    key = api_key.strip() or cfg.get("api_key") or os.getenv(m.api_key_env or "", "")
+    base = base_url.strip() or m.base_url
+    name = model_name.strip() or m.model_name
+    if not (key and base and name):
+        return {"ok": False, "msg": "缺少 base_url / model_name / 密钥，无法测试"}
+
+    adapter = OpenAICompatibleAdapter(m.model_key, base, key, name)
+    result = asyncio.run(adapter.ask("连通测试，请只回复：OK", timeout=20))
+    if result.status == "success":
+        snippet = (result.answer_text or "").strip().replace("\n", " ")[:40]
+        return {"ok": True, "msg": f"连通 {result.latency_ms}ms · 回复：{snippet}"}
+    return {"ok": False, "msg": f"失败：{(result.error_msg or '未知错误')[:100]}"}
