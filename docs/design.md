@@ -55,7 +55,7 @@
 | 前端页面 | **Jinja2 + Bootstrap(CDN) + 少量原生 JS/HTMX** | 无需 Node 构建链，改一处生效，最稳 |
 | 鉴权 | **Starlette SessionMiddleware + 登录表单** | 单管理员，签名 Cookie 会话 |
 | 网页自动化（二期） | **Playwright** | 元宝等无 API 模型，做成独立适配器 |
-| 报警 | 钉钉/企业微信群机器人 Webhook（默认）+ 邮件（可选） | 国内团队标配，一个 `notify()` 收口 |
+| 报警 | 飞书群机器人 Webhook（默认）+ 邮件（可选） | 一个 `notify()` 收口，渠道可插拔 |
 | 部署 | **Docker + docker-compose（app + mysql）** | 一键起，云端可直接跑 |
 
 > 说明：多数国产模型现已提供 **OpenAI 兼容 HTTP 接口**，因此接入层可用**一个通用适配器 + 配置**覆盖 6 个模型，而非写 6 个类。具体 base_url / model 名以**接入时官方文档为准**（各家会调整）。
@@ -117,7 +117,7 @@
 | `standard_answer` | 标准答案库 | question_id(FK)、content(LONGTEXT)、source、version、is_active、updated_by |
 | `llm_model` | 模型配置 | model_key(唯一)、display_name、adapter_type、base_url、model_name、enabled、concurrency、config(JSON)、api_key_env |
 | `run_batch` | 运行批次 | name、trigger_type(manual/scheduled)、status、total/success/fail/alert_count、started_at、finished_at、created_by |
-| `qa_log` | 问答日志 | batch_id(FK)、question_id、model_id、question_snapshot、answer_text(LONGTEXT)、asked_at、latency_ms、status、error_msg、token_usage(JSON)、raw_response(JSON) |
+| `qa_log` | 问答日志 | batch_id(FK)、question_id、model_id、question_snapshot、answer_text(LONGTEXT)、asked_at、latency_ms、status、error_msg、token_usage(JSON) |
 | `eval_result` | 判定结果 | qa_log_id(FK)、judge_model、standard_answer_snapshot、is_correct、correctness_score、pollution_level、deviation_level、verdict(pass/warn/fail)、reason、details(JSON)、evaluated_at |
 | `alert_log` | 报警记录 | batch_id、level、title、content、channel、status、sent_at |
 | `schedule_config` | 定时任务配置 | name、cron、question_scope(JSON)、model_ids(JSON)、judge_enabled、enabled、last_run_at |
@@ -288,7 +288,7 @@ GET    /healthz
 
 ### 8.3 报警
 - `notify_service.notify(level, title, content)` 收口，渠道可插拔：
-  - 默认：钉钉/企业微信 群机器人 Webhook（env 配 `ALERT_WEBHOOK_URL`）。
+  - 默认：飞书群机器人 Webhook（env 配 `ALERT_WEBHOOK_URL`）。
   - 可选：SMTP 邮件（env 配 `SMTP_*`）。
 - 触发时机：批次判定命中阈值；采集连续失败（如某模型全失败）也报警。
 - 所有报警写 `alert_log`，含发送状态，便于排查。
@@ -351,7 +351,7 @@ DEEPSEEK_API_KEY=... KIMI_API_KEY=... DOUBAO_API_KEY=...
 TONGYI_API_KEY=...   WENXIN_API_KEY=... XINGHUO_API_KEY=...
 
 # 报警
-ALERT_WEBHOOK_URL=...          # 钉钉/企微机器人
+ALERT_WEBHOOK_URL=...          # 飞书群机器人
 SMTP_HOST=... SMTP_PORT=... SMTP_USER=... SMTP_PASSWORD=... ALERT_MAIL_TO=...
 ```
 
@@ -398,15 +398,17 @@ SMTP_HOST=... SMTP_PORT=... SMTP_USER=... SMTP_PASSWORD=... ALERT_MAIL_TO=...
 
 ---
 
-## 14. 待确认 / 开放问题
+## 14. 已确认决策（补充）
 
-1. **元宝**：接受二期用 Playwright 网页自动化，还是可用「腾讯混元 API」近似代替底模？（二者结果可能不同）
-2. **判定口径**：污染/偏差的严重程度定义是否有产品侧既定标准可对齐？还是先用本文档 5 级/4 级默认口径？
-3. **报警渠道**：默认钉钉还是企业微信？是否需要邮件同时发送？
-4. **数据保留**：`raw_response` 原始报文是否长期保留（涉及存储成本）？
-5. **模型清单**：M1 先接哪几家（建议 DeepSeek + Kimi + 通义 先跑通，其余逐步加）？
+M0 沟通中进一步确认，并已落入本文档：
 
-> 以上确认后即可进入 **M1 编码**。如无异议，将按本文档结构搭建工程骨架并实现 MVP 核心闭环。
+1. **元宝**：二期用 **Playwright 网页自动化**接入（不采用混元 API 代替）。
+2. **判定口径**：采用本文档 **5 级污染 / 4 级偏差**默认标准。
+3. **报警渠道**：默认 **飞书群机器人 Webhook**（邮件可选）。
+4. **原始报文**：`raw_response` **不长期存储**（qa_log 仅保留回答正文 + token 用量等元数据）。
+5. **模型清单**：M1 先跑通 **DeepSeek + Kimi + 通义**，其余（豆包/文心/星火）逐步接入；元宝二期。
+
+> 决策已全部确认，进入 **M1 编码**：按本文档结构搭建工程骨架并实现 MVP 核心闭环（导入 → 提问 → 判定 → 查询）。
 
 ---
 
