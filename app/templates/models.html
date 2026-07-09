@@ -38,8 +38,10 @@
       <label class="form-check-label"><input type="checkbox" class="form-check-input me-1" name="enabled" {{ 'checked' if m.enabled }}>启用</label>
       <div class="d-flex align-items-center gap-2">
         <span class="test-result small"></span>
+        {% if is_admin(request) %}
         <button type="button" class="btn btn-sm btn-outline-info" onclick="testModel('{{ m.id }}', this)">测试</button>
         <button class="btn btn-sm btn-primary">保存</button>
+        {% else %}<span class="text-muted small">只读</span>{% endif %}
       </div>
     </div>
   </form>

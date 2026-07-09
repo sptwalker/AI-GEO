@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_user
+from app.auth import require_admin, require_user
 from app.database import get_db
 from app.models import Question
 from app.services import import_service
@@ -41,7 +41,7 @@ def list_questions(
     )
 
 
-@router.post("/questions/add")
+@router.post("/questions/add", dependencies=[Depends(require_admin)])
 def add_question(
     content: str = Form(...),
     category: str = Form(""),
@@ -62,7 +62,7 @@ def add_question(
     return RedirectResponse("/questions", status_code=303)
 
 
-@router.post("/questions/import")
+@router.post("/questions/import", dependencies=[Depends(require_admin)])
 async def import_questions(
     text: str = Form(""),
     file: UploadFile | None = File(None),
@@ -79,7 +79,7 @@ async def import_questions(
     )
 
 
-@router.post("/questions/{qid}/edit")
+@router.post("/questions/{qid}/edit", dependencies=[Depends(require_admin)])
 def edit_question(
     qid: int,
     content: str = Form(...),
@@ -100,7 +100,7 @@ def edit_question(
     return RedirectResponse("/questions", status_code=303)
 
 
-@router.post("/questions/{qid}/delete")
+@router.post("/questions/{qid}/delete", dependencies=[Depends(require_admin)])
 def delete_question(qid: int, db: Session = Depends(get_db)):
     obj = db.get(Question, qid)
     if obj:

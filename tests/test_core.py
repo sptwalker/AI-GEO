@@ -77,6 +77,17 @@ def test_build_csv_bom_and_rows():
     assert '"问,含逗号"' in text  # csv 对逗号字段加引号
 
 
+def test_password_hash_verify():
+    from app.security import hash_password, verify_password
+
+    h, salt = hash_password("s3cret")
+    assert verify_password("s3cret", h, salt)
+    assert not verify_password("wrong", h, salt)
+    # 随机盐：两次哈希不同
+    h2, salt2 = hash_password("s3cret")
+    assert h2 != h and salt2 != salt
+
+
 if __name__ == "__main__":
     for _name, _fn in list(globals().items()):
         if _name.startswith("test_") and callable(_fn):

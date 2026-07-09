@@ -34,14 +34,14 @@
   <td><span class="badge text-bg-{{ 'success' if log.eval.verdict=='pass' else 'danger' if log.eval.verdict=='fail' else 'warning' }}">{{ log.eval.verdict }}{{ '·人工' if log.eval.overridden }}</span></td>
   <td class="small">{{ log.eval.pollution_level }} / {{ log.eval.deviation_level }}</td>
   <td>{{ log.eval.correctness_score }}</td>
-  <td>
+  <td>{% if is_admin(request) %}
     <form method="post" action="/evals/{{ log.eval.id }}/override" class="d-flex gap-1">
       <select name="verdict" class="form-select form-select-sm" style="width:auto">
         {% for v in ['pass','warn','fail'] %}<option value="{{ v }}" {{ 'selected' if log.eval.verdict==v }}>{{ v }}</option>{% endfor %}
       </select>
       <button class="btn btn-sm btn-outline-secondary">改</button>
     </form>
-  </td>
+  {% else %}<span class="text-muted small">—</span>{% endif %}</td>
   {% else %}<td colspan="4" class="text-muted small">未判定</td>{% endif %}
 </tr>
 {% else %}<tr><td colspan="8" class="text-muted">无记录</td></tr>{% endfor %}

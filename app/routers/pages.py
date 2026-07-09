@@ -67,7 +67,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             }
         )
 
-    # 近 7 天趋势
+    # 近 14 天趋势
     trows = db.execute(
         select(
             func.date(QALog.asked_at),
@@ -77,14 +77,44 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         .join(EvalResult, EvalResult.qa_log_id == QALog.id, isouter=True)
         .group_by(func.date(QALog.asked_at))
         .order_by(func.date(QALog.asked_at).desc())
-        .limit(7)
+        .limit(14)
     ).all()
     trend = [{"date": str(d), "total": t, "fail": int(fl or 0)} for d, t, fl in trows]
     trend.reverse()
+
+    # 预算 inline-SVG 柱状图几何（总量灰柱 + 失败红柱），避免模板里做数学
+    bw, gap, h = 22, 8, 90
+    max_total = max((d["total"] for d in trend), default=1) or 1
+    chart = []
+    for i, d in enumerate(trend):
+        th = round(d["total"] / max_total * h)
+        fh = round(d["fail"] / max_total * h)
+        chart.append(
+            {
+                "x": i * (bw + gap),
+                "bw": bw,
+                "total_y": h - th + 10,
+                "total_h": th,
+                "fail_y": h - fh + 10,
+                "fail_h": fh,
+                "label": d["date"][5:],
+                "total": d["total"],
+                "fail": d["fail"],
+            }
+        )
+    chart_w = max(len(trend) * (bw + gap), 1)
 
     recent = list(db.scalars(select(RunBatch).order_by(RunBatch.id.desc()).limit(10)))
     return templates.TemplateResponse(
         request,
         "dashboard.html",
-        {"stats": stats, "model_stats": model_stats, "trend": trend, "recent": recent},
+        {
+            "stats": stats,
+            "model_stats": model_stats,
+            "trend": trend,
+            "chart": chart,
+            "chart_w": chart_w,
+            "chart_h": h + 30,
+            "recent": recent,
+        },
     )

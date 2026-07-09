@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_user
+from app.auth import require_admin, require_user
 from app.database import get_db
 from app.models import AlertLog, LLMModel, Question, ScheduleConfig
 from app.scheduler import service as sched
@@ -48,7 +48,7 @@ def list_schedules(request: Request, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/schedules")
+@router.post("/schedules", dependencies=[Depends(require_admin)])
 def create_schedule(
     name: str = Form(...),
     cron: str = Form(...),
@@ -59,7 +59,7 @@ def create_schedule(
     judge_enabled: str = Form("off"),
     enabled: str = Form("off"),
     db: Session = Depends(get_db),
-    user: str = Depends(require_user),
+    user: str = Depends(require_admin),
 ):
     if not sched.validate_cron(cron.strip()):
         return RedirectResponse("/schedules?error=bad_cron", status_code=303)
@@ -80,7 +80,7 @@ def create_schedule(
     return RedirectResponse("/schedules", status_code=303)
 
 
-@router.post("/schedules/{sid}/toggle")
+@router.post("/schedules/{sid}/toggle", dependencies=[Depends(require_admin)])
 def toggle_schedule(sid: int, db: Session = Depends(get_db)):
     sc = db.get(ScheduleConfig, sid)
     if sc:
@@ -90,7 +90,7 @@ def toggle_schedule(sid: int, db: Session = Depends(get_db)):
     return RedirectResponse("/schedules", status_code=303)
 
 
-@router.post("/schedules/{sid}/delete")
+@router.post("/schedules/{sid}/delete", dependencies=[Depends(require_admin)])
 def delete_schedule(sid: int, db: Session = Depends(get_db)):
     sc = db.get(ScheduleConfig, sid)
     if sc:
@@ -100,7 +100,7 @@ def delete_schedule(sid: int, db: Session = Depends(get_db)):
     return RedirectResponse("/schedules", status_code=303)
 
 
-@router.post("/schedules/{sid}/run-now")
+@router.post("/schedules/{sid}/run-now", dependencies=[Depends(require_admin)])
 def run_now(sid: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """立即执行一次（走后台任务，不依赖调度器是否开启）。"""
     if db.get(ScheduleConfig, sid):

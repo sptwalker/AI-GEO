@@ -204,3 +204,16 @@ class AlertLog(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(16), default="sent")  # sent/failed/skipped
     error_msg: Mapped[str | None] = mapped_column(String(512))
     sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class User(TimestampMixin, Base):
+    """后台用户（M4）。role：admin=全权，viewer=只读（可查询/导出，不能改动）。"""
+
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(BigIntPk, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(128))
+    salt: Mapped[str] = mapped_column(String(64))
+    role: Mapped[str] = mapped_column(String(16), default="viewer", index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)

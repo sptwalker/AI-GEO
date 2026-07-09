@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_user
+from app.auth import require_admin, require_user
 from app.database import get_db
 from app.models import Question, StandardAnswer
 from app.templating import templates
@@ -34,7 +34,7 @@ def save_answer(
     content: str = Form(...),
     source: str = Form(""),
     db: Session = Depends(get_db),
-    user: str = Depends(require_user),
+    user: str = Depends(require_admin),
 ):
     """新增或更新某题的标准答案：旧版本置为非活跃保留，新版本 version+1。"""
     content = content.strip()
@@ -63,7 +63,7 @@ def save_answer(
     return RedirectResponse("/answers", status_code=303)
 
 
-@router.post("/answers/{aid}/delete")
+@router.post("/answers/{aid}/delete", dependencies=[Depends(require_admin)])
 def delete_answer(aid: int, db: Session = Depends(get_db)):
     obj = db.get(StandardAnswer, aid)
     if obj:

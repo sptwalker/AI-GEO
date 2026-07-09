@@ -12,11 +12,12 @@
       <td>{{ ans.content }}</td>
       <td>v{{ ans.version }}</td>
       <td class="small">{{ ans.source or '' }}</td>
-      <td><form method="post" action="/answers/{{ ans.id }}/delete" onsubmit="return confirm('删除？')"><button class="btn btn-link btn-sm text-danger p-0">删除</button></form></td>
+      <td>{% if is_admin(request) %}<form method="post" action="/answers/{{ ans.id }}/delete" onsubmit="return confirm('删除？')"><button class="btn btn-link btn-sm text-danger p-0">删除</button></form>{% else %}—{% endif %}</td>
     </tr>
     {% else %}<tr><td colspan="5" class="text-muted">暂无标准答案</td></tr>{% endfor %}
     </tbody></table>
   </div>
+  {% if is_admin(request) %}
   <div class="col-lg-4">
     <div class="card card-body">
       <h6>录入 / 更新标准答案</h6>
@@ -32,5 +33,6 @@
       <p class="text-muted small mt-2 mb-0">同一题目再次保存会将旧答案归档、生成新版本作为当前权威口径。</p>
     </div>
   </div>
+  {% endif %}
 </div>
 {% endblock %}

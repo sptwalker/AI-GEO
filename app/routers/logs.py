@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_user
+from app.auth import require_admin, require_user
 from app.database import get_db
 from app.models import EvalResult, LLMModel, QALog
 from app.services import export_service
@@ -112,14 +112,14 @@ def export_logs(
     )
 
 
-@router.post("/evals/{eid}/override")
+@router.post("/evals/{eid}/override", dependencies=[Depends(require_admin)])
 def override_eval(
     request: Request,
     eid: int,
     verdict: str = Form(...),
     reason: str = Form(""),
     db: Session = Depends(get_db),
-    user: str = Depends(require_user),
+    user: str = Depends(require_admin),
 ):
     """人工复核：覆盖裁判结论并留痕。"""
     ev = db.get(EvalResult, eid)

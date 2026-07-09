@@ -18,8 +18,9 @@ class Settings(BaseSettings):
     # ---- 应用 ----
     app_secret: str = "change-me-in-prod"   # 会话 Cookie 签名密钥
     admin_username: str = "admin"
-    admin_password: str = "admin123"        # MVP：明文比对；生产请改强口令或前置反代鉴权
+    admin_password: str = "admin123"        # 首次启动播种的管理员口令（之后可在用户页改）
     run_scheduler: bool = False             # M2 定时调度开关
+    auto_create_tables: bool = True         # false 时交给 Alembic 迁移建表（M4）
 
     # ---- 数据库 ----
     db_host: str = "127.0.0.1"

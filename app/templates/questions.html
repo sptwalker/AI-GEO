@@ -23,13 +23,14 @@
       <td>{{ x.content }}</td>
       <td>{{ x.category or '' }}</td>
       <td>{{ '✅' if x.enabled else '⛔' }}</td>
-      <td class="text-nowrap">
+      <td class="text-nowrap">{% if is_admin(request) %}
         <button class="btn btn-link btn-sm p-0" data-bs-toggle="collapse" data-bs-target="#edit{{ x.id }}">编辑</button>
         <form method="post" action="/questions/{{ x.id }}/delete" class="d-inline" onsubmit="return confirm('删除该问题？')">
           <button class="btn btn-link btn-sm p-0 text-danger">删除</button>
         </form>
-      </td>
+      {% else %}<span class="text-muted small">—</span>{% endif %}</td>
     </tr>
+    {% if is_admin(request) %}
     <tr class="collapse" id="edit{{ x.id }}"><td colspan="5">
       <form method="post" action="/questions/{{ x.id }}/edit" class="row g-2">
         <div class="col-12"><textarea class="form-control" name="content" rows="2" required>{{ x.content }}</textarea></div>
@@ -40,9 +41,11 @@
         <div class="col-auto"><button class="btn btn-primary">保存</button></div>
       </form>
     </td></tr>
+    {% endif %}
     {% else %}<tr><td colspan="5" class="text-muted">暂无题目</td></tr>{% endfor %}
     </tbody></table>
   </div>
+  {% if is_admin(request) %}
   <div class="col-lg-4">
     <div class="card card-body mb-3">
       <h6>新增单题</h6>
@@ -63,5 +66,6 @@
       </form>
     </div>
   </div>
+  {% endif %}
 </div>
 {% endblock %}

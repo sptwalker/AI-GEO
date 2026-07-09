@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="row">
+  {% if is_admin(request) %}
   <div class="col-lg-5">
     <div class="card card-body">
       <h5>新建定时任务</h5>
@@ -35,6 +36,7 @@
       </form>
     </div>
   </div>
+  {% endif %}
   <div class="col-lg-7">
     <h5>定时任务</h5>
     <table class="table table-sm bg-white align-middle">
@@ -48,11 +50,11 @@
       <td>{{ '✅' if s.enabled else '⛔' }}</td>
       <td class="small">{{ next_runs[s.id] or '—' }}</td>
       <td class="small">{{ s.last_run_at.strftime('%m-%d %H:%M') if s.last_run_at else '—' }}</td>
-      <td class="text-nowrap">
+      <td class="text-nowrap">{% if is_admin(request) %}
         <form method="post" action="/schedules/{{ s.id }}/run-now" class="d-inline"><button class="btn btn-link btn-sm p-0">立即运行</button></form>
         <form method="post" action="/schedules/{{ s.id }}/toggle" class="d-inline"><button class="btn btn-link btn-sm p-0">{{ '停用' if s.enabled else '启用' }}</button></form>
         <form method="post" action="/schedules/{{ s.id }}/delete" class="d-inline" onsubmit="return confirm('删除该任务？')"><button class="btn btn-link btn-sm p-0 text-danger">删除</button></form>
-      </td>
+      {% else %}<span class="text-muted small">—</span>{% endif %}</td>
     </tr>
     {% else %}<tr><td colspan="7" class="text-muted">暂无定时任务</td></tr>{% endfor %}
     </tbody></table>

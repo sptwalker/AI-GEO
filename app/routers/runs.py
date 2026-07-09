@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.adapters.registry import get_enabled_adapters
-from app.auth import require_user
+from app.auth import require_admin, require_user
 from app.database import get_db
 from app.models import LLMModel, QALog, Question, RunBatch
 from app.services import ask_service, export_service
@@ -40,7 +40,7 @@ def list_runs(request: Request, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/runs")
+@router.post("/runs", dependencies=[Depends(require_admin)])
 def trigger_run(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -50,7 +50,7 @@ def trigger_run(
     model_ids: list[int] = Form([]),
     judge_enabled: str = Form("off"),
     db: Session = Depends(get_db),
-    user: str = Depends(require_user),
+    user: str = Depends(require_admin),
 ):
     qids = ask_service.resolve_question_ids(db, scope, category or None, None)
     if not qids:

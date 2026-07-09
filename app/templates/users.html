@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    <h5>用户</h5>
+    {% if error=='exists' %}<div class="alert alert-danger py-2">用户名已存在</div>{% endif %}
+    {% if error=='invalid' %}<div class="alert alert-danger py-2">输入不合法</div>{% endif %}
+    {% if error=='last_admin' %}<div class="alert alert-warning py-2">不能移除/降级最后一个管理员</div>{% endif %}
+    {% if error=='self' %}<div class="alert alert-warning py-2">不能停用/删除当前登录账号</div>{% endif %}
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>{{ u.username }}{% if u.username==me %} <span class="badge text-bg-info">我</span>{% endif %}</td>
+      <td>
+        <form method="post" action="/users/{{ u.id }}/role" class="d-flex gap-1">
+          <select name="role" class="form-select form-select-sm" style="width:auto">
+            {% for r in roles %}<option value="{{ r }}" {{ 'selected' if u.role==r }}>{{ r }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-sm btn-outline-secondary">改</button>
+        </form>
+      </td>
+      <td>{{ '✅启用' if u.enabled else '⛔停用' }}</td>
+      <td class="text-nowrap">
+        <button class="btn btn-link btn-sm p-0" data-bs-toggle="collapse" data-bs-target="#pw{{ u.id }}">重置密码</button>
+        <form method="post" action="/users/{{ u.id }}/toggle" class="d-inline"><button class="btn btn-link btn-sm p-0">{{ '停用' if u.enabled else '启用' }}</button></form>
+        <form method="post" action="/users/{{ u.id }}/delete" class="d-inline" onsubmit="return confirm('删除该用户？')"><button class="btn btn-link btn-sm p-0 text-danger">删除</button></form>
+      </td>
+    </tr>
+    <tr class="collapse" id="pw{{ u.id }}"><td colspan="5">
+      <form method="post" action="/users/{{ u.id }}/reset" class="d-flex gap-2">
+        <input class="form-control form-control-sm" type="password" name="password" placeholder="新密码" required>
+        <button class="btn btn-sm btn-primary">保存新密码</button>
+      </form>
+    </td></tr>
+    {% endfor %}
+    </tbody></table>
+  </div>
+  <div class="col-lg-4">
+    <div class="card card-body">
+      <h6>新增用户</h6>
+      <form method="post" action="/users">
+        <input class="form-control mb-2" name="username" placeholder="用户名" required>
+        <input class="form-control mb-2" type="password" name="password" placeholder="密码" required>
+        <select class="form-select mb-2" name="role">
+          {% for r in roles %}<option value="{{ r }}">{{ r }}{{ '（全权）' if r=='admin' else '（只读）' }}</option>{% endfor %}
+        </select>
+        <button class="btn btn-primary w-100">创建</button>
+      </form>
+      <p class="text-muted small mt-2 mb-0">admin：全部功能；viewer：仅查看/查询/导出，不能改动或发起运行。</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

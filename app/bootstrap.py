@@ -7,8 +7,10 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from app.config import settings
 from app.database import Base, SessionLocal, engine
-from app.models import LLMModel  # noqa: F401  确保模型注册到 Base.metadata
+from app.models import LLMModel, User  # noqa: F401  确保模型注册到 Base.metadata
+from app.security import hash_password
 
 DEFAULT_MODELS: list[dict] = [
     dict(
@@ -69,14 +71,30 @@ DEFAULT_MODELS: list[dict] = [
 
 
 def ensure_schema_and_seed() -> None:
-    """建表并补齐缺失的默认模型（不会覆盖已有配置）。"""
-    Base.metadata.create_all(engine)
+    """建表 + 补齐默认模型 + 播种管理员（均幂等，不覆盖已有）。
+
+    AUTO_CREATE_TABLES=false 时跳过建表（交给 Alembic 迁移管理），仅做数据播种。
+    """
+    if settings.auto_create_tables:
+        Base.metadata.create_all(engine)
     db = SessionLocal()
     try:
         existing = {m.model_key for m in db.scalars(select(LLMModel))}
         for spec in DEFAULT_MODELS:
             if spec["model_key"] not in existing:
                 db.add(LLMModel(**spec))
+        # 播种初始管理员（仅当无任何用户时），口令取环境变量
+        if db.scalar(select(User).limit(1)) is None:
+            pw_hash, salt = hash_password(settings.admin_password)
+            db.add(
+                User(
+                    username=settings.admin_username,
+                    password_hash=pw_hash,
+                    salt=salt,
+                    role="admin",
+                    enabled=True,
+                )
+            )
         db.commit()
     finally:
         db.close()

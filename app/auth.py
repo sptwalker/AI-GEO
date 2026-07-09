@@ -1,44 +1,68 @@
-"""简单管理员会话鉴权。
+"""会话鉴权（M4：多用户 + 角色）。
 
-单账号，用户名/密码来自环境变量，常量时间比对；登录态存签名会话 Cookie。
-生产建议改强口令或前置反向代理鉴权（见 docs/design.md 10.2）。
+用户存 DB（见 models.User），密码 pbkdf2 哈希。首次启动由 bootstrap 用环境变量
+ADMIN_USERNAME/ADMIN_PASSWORD 播种一个 admin 用户。角色：admin=全权，viewer=只读。
+登录态存签名会话 Cookie（用户名 + 角色）。
 """
 from __future__ import annotations
 
-import hmac
-
 from fastapi import Request
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.config import settings
+from app.models import User
+from app.security import verify_password
 
 SESSION_USER_KEY = "user"
+SESSION_ROLE_KEY = "role"
 
 
 class NotAuthenticated(Exception):
-    """未登录标记异常，由 main 的处理器统一重定向到 /login。"""
+    """未登录：由 main 的处理器重定向到 /login。"""
 
 
-def verify_credentials(username: str, password: str) -> bool:
-    return hmac.compare_digest(username, settings.admin_username) and hmac.compare_digest(
-        password, settings.admin_password
-    )
+class NotAuthorized(Exception):
+    """已登录但权限不足（非 admin 访问写操作）：返回 403。"""
 
 
-def login_session(request: Request, username: str) -> None:
-    request.session[SESSION_USER_KEY] = username
+def authenticate(db: Session, username: str, password: str) -> User | None:
+    user = db.scalar(select(User).where(User.username == username, User.enabled.is_(True)))
+    if user and verify_password(password, user.password_hash, user.salt):
+        return user
+    return None
+
+
+def login_session(request: Request, user: User) -> None:
+    request.session[SESSION_USER_KEY] = user.username
+    request.session[SESSION_ROLE_KEY] = user.role
 
 
 def logout_session(request: Request) -> None:
     request.session.pop(SESSION_USER_KEY, None)
+    request.session.pop(SESSION_ROLE_KEY, None)
 
 
 def current_user(request: Request) -> str | None:
     return request.session.get(SESSION_USER_KEY)
 
 
+def current_role(request: Request) -> str | None:
+    return request.session.get(SESSION_ROLE_KEY)
+
+
 def require_user(request: Request) -> str:
-    """FastAPI 依赖：未登录抛 NotAuthenticated（→ 重定向登录页）。"""
+    """依赖：需登录（任意角色）。"""
     user = current_user(request)
     if not user:
         raise NotAuthenticated()
+    return user
+
+
+def require_admin(request: Request) -> str:
+    """依赖：需 admin 角色（写操作）。"""
+    user = current_user(request)
+    if not user:
+        raise NotAuthenticated()
+    if current_role(request) != "admin":
+        raise NotAuthorized()
     return user

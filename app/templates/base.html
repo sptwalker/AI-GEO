@@ -17,8 +17,12 @@
       <li class="nav-item"><a class="nav-link" href="/runs">运行</a></li>
       <li class="nav-item"><a class="nav-link" href="/schedules">定时</a></li>
       <li class="nav-item"><a class="nav-link" href="/logs">查询</a></li>
+      {% if is_admin(request) %}<li class="nav-item"><a class="nav-link" href="/users">用户</a></li>{% endif %}
     </ul>
-    <div class="ms-auto"><a class="btn btn-outline-light btn-sm" href="/logout">退出</a></div>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <span class="text-light small">{{ request.session.get('user','') }}{% if request.session.get('role') %} · {{ request.session.get('role') }}{% endif %}</span>
+      <a class="btn btn-outline-light btn-sm" href="/logout">退出</a>
+    </div>
   </div>
 </nav>
 <main class="container-fluid py-4">

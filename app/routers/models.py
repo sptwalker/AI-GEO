@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.adapters.openai_compatible import OpenAICompatibleAdapter
-from app.auth import require_user
+from app.auth import require_admin, require_user
 from app.database import get_db
 from app.models import LLMModel
 from app.templating import templates
@@ -33,7 +33,7 @@ def list_models(request: Request, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/models/{mid}/save")
+@router.post("/models/{mid}/save", dependencies=[Depends(require_admin)])
 def save_model(
     mid: int,
     enabled: str = Form("off"),
@@ -86,7 +86,7 @@ def save_model(
     return RedirectResponse("/models", status_code=303)
 
 
-@router.post("/models/{mid}/test")
+@router.post("/models/{mid}/test", dependencies=[Depends(require_admin)])
 def test_model(
     mid: int,
     base_url: str = Form(""),

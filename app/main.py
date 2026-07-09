@@ -5,14 +5,14 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import models  # noqa: F401  确保 ORM 模型注册到 Base.metadata
-from app.auth import NotAuthenticated
+from app.auth import NotAuthenticated, NotAuthorized
 from app.bootstrap import ensure_schema_and_seed
 from app.config import settings
-from app.routers import answers, auth, logs, pages, questions, runs, schedules
+from app.routers import answers, auth, logs, pages, questions, runs, schedules, users
 from app.routers import models as models_router
 
 logging.basicConfig(
@@ -44,6 +44,10 @@ def create_app() -> FastAPI:
     async def _redirect_login(request: Request, exc: NotAuthenticated):  # noqa: ARG001
         return RedirectResponse("/login", status_code=303)
 
+    @app.exception_handler(NotAuthorized)
+    async def _forbidden(request: Request, exc: NotAuthorized):  # noqa: ARG001
+        return HTMLResponse("<h3>403 权限不足</h3><p>该操作需要管理员角色。</p>", status_code=403)
+
     @app.get("/healthz")
     def healthz():
         """探活端点（公开，不需登录）。"""
@@ -58,6 +62,7 @@ def create_app() -> FastAPI:
         runs.router,
         logs.router,
         schedules.router,
+        users.router,
     ):
         app.include_router(r)
     return app

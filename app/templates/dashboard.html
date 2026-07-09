@@ -51,14 +51,19 @@
     </tbody></table>
   </div>
   <div class="col-lg-5">
-    <h5>近 7 天趋势</h5>
-    <table class="table table-sm bg-white align-middle">
-    <thead><tr><th>日期</th><th>问答数</th><th>失败(fail)</th></tr></thead>
-    <tbody>
-    {% for d in trend %}
-    <tr><td class="small">{{ d.date }}</td><td>{{ d.total }}</td><td>{% if d.fail %}<span class="text-danger">{{ d.fail }}</span>{% else %}0{% endif %}</td></tr>
-    {% else %}<tr><td colspan="3" class="text-muted">暂无数据</td></tr>{% endfor %}
-    </tbody></table>
+    <h5>近 14 天趋势</h5>
+    <div class="card card-body">
+      <svg viewBox="0 0 {{ chart_w }} {{ chart_h }}" width="100%" height="140" preserveAspectRatio="xMidYMid meet">
+        {% for c in chart %}
+        <rect x="{{ c.x }}" y="{{ c.total_y }}" width="{{ c.bw }}" height="{{ c.total_h }}" fill="#adb5bd">
+          <title>{{ c.label }}：问答 {{ c.total }}，失败 {{ c.fail }}</title>
+        </rect>
+        {% if c.fail_h %}<rect x="{{ c.x }}" y="{{ c.fail_y }}" width="{{ c.bw }}" height="{{ c.fail_h }}" fill="#dc3545"/>{% endif %}
+        <text x="{{ c.x + c.bw/2 }}" y="{{ chart_h - 2 }}" font-size="9" text-anchor="middle" fill="#888">{{ c.label }}</text>
+        {% endfor %}
+      </svg>
+      <div class="small text-muted"><span style="color:#adb5bd">■</span> 问答量　<span style="color:#dc3545">■</span> 失败(fail)　（悬停看数值）</div>
+    </div>
   </div>
 </div>
 {% endblock %}

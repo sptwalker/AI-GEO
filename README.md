@@ -66,13 +66,13 @@ tests/test_core.py   关键逻辑自测
 | M1 | MVP 核心闭环（导入→提问→判定→查询）| ✅ |
 | M2 | 定时自动运行 + 飞书报警 + 仪表盘增强 | ✅ |
 | M3 | 元宝等网页端自动化（Playwright）+ CSV 导出 + 健壮性 | ✅ |
-| M4 | 多用户 / 迁移 / 趋势分析 | ⏳ |
+| M4 | 多用户/角色 + Alembic 迁移 + 趋势图表 | ✅ |
 
 ## 定时自动运行 + 报警（M2）
 
 - 单进程内嵌调度：设 `RUN_SCHEDULER=true` 启动应用即自动跑 `/schedules` 里配置的 cron 任务。
 - 报警走飞书自定义群机器人：配 `ALERT_WEBHOOK_URL`（可选 `ALERT_WEBHOOK_SECRET` 加签）；批次命中 `fail`/严重污染即推送汇总。
-- 仪表盘含分模型判定统计与近 7 天趋势。
+- 仪表盘含分模型判定统计与近 14 天趋势图。
 
 ## 网页自动化 + 导出（M3）
 
@@ -84,6 +84,22 @@ tests/test_core.py   关键逻辑自测
   ```
   之后适配器无头复用登录态。选择器（输入框/发送/回答）均在模型配置页填写，可用卡片「测试」按钮验证连通。
 - **CSV 导出**：`/logs` 按当前筛选导出、`/runs/{id}` 导出单批次，带 BOM，Excel 直接打开。
+
+## 多用户与角色（M4）
+
+- 用户存 DB，密码 pbkdf2 哈希；首次启动用 `ADMIN_USERNAME/ADMIN_PASSWORD` 播种初始 **admin**。
+- 角色：**admin**（全权）/ **viewer**（只读：可查询/导出，不能改动或发起运行）。写操作服务端 `require_admin` 强校验，页面按角色隐藏写控件。
+- `/users` 页（admin）管理用户；有"最后一个管理员/当前账号"保护，防锁死。
+
+## 数据库迁移（M4，可选）
+
+默认 `AUTO_CREATE_TABLES=true` 启动自动建表（开发便捷）。生产可用 Alembic 受控迁移：
+
+```bash
+alembic stamp head                              # 已有(create_all)库首次纳入迁移
+alembic revision --autogenerate -m "xxx"        # 改模型后生成迁移
+alembic upgrade head                            # 应用迁移（配 AUTO_CREATE_TABLES=false 时用它建表）
+```
 
 ## 说明
 
