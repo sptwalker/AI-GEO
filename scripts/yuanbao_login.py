@@ -22,19 +22,24 @@ def main() -> None:
     ap.add_argument("--url", default="", help="登录/聊天页 url，留空则读取该模型配置")
     args = ap.parse_args()
 
-    from sqlalchemy import select
-
-    from app.database import SessionLocal
-    from app.models import LLMModel
-
-    db = SessionLocal()
-    m = db.scalar(select(LLMModel).where(LLMModel.model_key == args.model))
-    cfg = (m.config if m else None) or {}
-    url = args.url or cfg.get("url")
-    user_data_dir = cfg.get("user_data_dir") or f".playwright/{args.model}"
-    db.close()
+    url = args.url
+    user_data_dir = None
+    # 只有未显式传 --url 时才查库拿配置，避免无数据库环境（本地未起 MySQL）也报错
     if not url:
-        sys.exit("未提供 url：请在模型配置页填写 url，或用 --url 传入")
+        from sqlalchemy import select
+
+        from app.database import SessionLocal
+        from app.models import LLMModel
+
+        db = SessionLocal()
+        m = db.scalar(select(LLMModel).where(LLMModel.model_key == args.model))
+        cfg = (m.config if m else None) or {}
+        url = cfg.get("url")
+        user_data_dir = cfg.get("user_data_dir")
+        db.close()
+    user_data_dir = user_data_dir or f".playwright/{args.model}"
+    if not url:
+        sys.exit("未提供 url：用 --url 传入，或先在模型配置页填 url")
 
     try:
         from playwright.sync_api import sync_playwright
