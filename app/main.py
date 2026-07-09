@@ -12,7 +12,7 @@ from app import models  # noqa: F401  确保 ORM 模型注册到 Base.metadata
 from app.auth import NotAuthenticated
 from app.bootstrap import ensure_schema_and_seed
 from app.config import settings
-from app.routers import answers, auth, logs, pages, questions, runs
+from app.routers import answers, auth, logs, pages, questions, runs, schedules
 from app.routers import models as models_router
 
 logging.basicConfig(
@@ -23,7 +23,15 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     ensure_schema_and_seed()  # 幂等：建表 + 补齐默认模型
+    if settings.run_scheduler:
+        from app.scheduler.service import start_scheduler
+
+        start_scheduler()
     yield
+    if settings.run_scheduler:
+        from app.scheduler.service import shutdown_scheduler
+
+        shutdown_scheduler()
 
 
 def create_app() -> FastAPI:
@@ -49,6 +57,7 @@ def create_app() -> FastAPI:
         models_router.router,
         runs.router,
         logs.router,
+        schedules.router,
     ):
         app.include_router(r)
     return app

@@ -170,3 +170,37 @@ class EvalResult(TimestampMixin, Base):
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     qa_log: Mapped["QALog"] = relationship(back_populates="eval")
+
+
+class ScheduleConfig(TimestampMixin, Base):
+    """定时任务配置：cron + 题目范围 + 模型范围。调度器据此注册 APScheduler 作业。"""
+
+    __tablename__ = "schedule_config"
+
+    id: Mapped[int] = mapped_column(BigIntPk, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    cron: Mapped[str] = mapped_column(String(64))  # 5 段 cron，如 "0 9 * * *"
+    scope: Mapped[str] = mapped_column(String(16), default="all")  # all/category/ids
+    category: Mapped[str | None] = mapped_column(String(64))
+    question_ids: Mapped[list | None] = mapped_column(JSON)  # scope=ids 时使用
+    model_ids: Mapped[list | None] = mapped_column(JSON)  # 空=全部启用模型
+    judge_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+
+
+class AlertLog(TimestampMixin, Base):
+    """报警记录：一次报警的内容与发送状态，便于排查。"""
+
+    __tablename__ = "alert_log"
+
+    id: Mapped[int] = mapped_column(BigIntPk, primary_key=True, autoincrement=True)
+    batch_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    level: Mapped[str] = mapped_column(String(16), default="warning")
+    title: Mapped[str] = mapped_column(String(255))
+    content: Mapped[str] = mapped_column(Text)
+    channel: Mapped[str] = mapped_column(String(16), default="feishu")
+    status: Mapped[str] = mapped_column(String(16), default="sent")  # sent/failed/skipped
+    error_msg: Mapped[str | None] = mapped_column(String(512))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime)

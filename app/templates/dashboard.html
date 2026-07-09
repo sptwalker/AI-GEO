@@ -26,4 +26,39 @@
 </tr>
 {% else %}<tr><td colspan="9" class="text-muted">暂无批次，去 <a href="/runs">运行</a> 发起一次。</td></tr>{% endfor %}
 </tbody></table>
+
+<div class="row mt-3">
+  <div class="col-lg-7">
+    <h5>分模型判定统计</h5>
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>模型</th><th>问答</th><th style="width:220px">通过/关注/失败</th><th>均分</th></tr></thead>
+    <tbody>
+    {% for s in model_stats %}
+    <tr>
+      <td class="small">{{ s.name }}</td>
+      <td>{{ s.total }}</td>
+      <td>
+        <div class="progress" style="height:16px" title="通过{{ s.pass }} / 关注{{ s.warn }} / 失败{{ s.fail }}">
+          <div class="progress-bar bg-success" style="width:{{ s.pass_pct }}%"></div>
+          <div class="progress-bar bg-warning" style="width:{{ s.warn_pct }}%"></div>
+          <div class="progress-bar bg-danger" style="width:{{ s.fail_pct }}%"></div>
+        </div>
+        <span class="small text-muted">{{ s.pass }}/{{ s.warn }}/{{ s.fail }}</span>
+      </td>
+      <td>{{ s.avg }}</td>
+    </tr>
+    {% else %}<tr><td colspan="4" class="text-muted">暂无判定数据</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  <div class="col-lg-5">
+    <h5>近 7 天趋势</h5>
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>日期</th><th>问答数</th><th>失败(fail)</th></tr></thead>
+    <tbody>
+    {% for d in trend %}
+    <tr><td class="small">{{ d.date }}</td><td>{{ d.total }}</td><td>{% if d.fail %}<span class="text-danger">{{ d.fail }}</span>{% else %}0{% endif %}</td></tr>
+    {% else %}<tr><td colspan="3" class="text-muted">暂无数据</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</div>
 {% endblock %}

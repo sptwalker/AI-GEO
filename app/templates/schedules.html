@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-5">
+    <div class="card card-body">
+      <h5>新建定时任务</h5>
+      {% if scheduler_on is false %}<div class="alert alert-warning py-2 small">当前进程未开启调度（<code>RUN_SCHEDULER=false</code>）。任务会保存，但需在开启调度的进程中才会自动触发；可用“立即运行”手动跑。</div>{% endif %}
+      {% if error=='bad_cron' %}<div class="alert alert-danger py-2">cron 表达式不合法（需 5 段，如 <code>0 9 * * *</code>）</div>{% endif %}
+      <form method="post" action="/schedules">
+        <input class="form-control mb-2" name="name" placeholder="任务名称" required>
+        <label class="form-label mb-1">cron（5 段，服务器时区 {{ '' }}）</label>
+        <input class="form-control mb-1" name="cron" placeholder="0 9 * * *" required>
+        <div class="text-muted small mb-2">例：<code>0 9 * * *</code> 每天9点 · <code>*/30 * * * *</code> 每30分钟 · <code>0 */6 * * *</code> 每6小时 · <code>0 9 * * 1-5</code> 工作日9点</div>
+        <label class="form-label mb-1">题目范围</label>
+        <select class="form-select mb-2" name="scope"
+                onchange="document.getElementById('sc-cat').style.display=this.value=='category'?'block':'none';document.getElementById('sc-ids').style.display=this.value=='ids'?'block':'none'">
+          <option value="all">全部启用题目</option>
+          <option value="category">按分类</option>
+          <option value="ids">指定题目ID</option>
+        </select>
+        <div class="mb-2" id="sc-cat" style="display:none">
+          <select class="form-select" name="category"><option value="">选择分类</option>{% for c in cats %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
+        </div>
+        <div class="mb-2" id="sc-ids" style="display:none">
+          <input class="form-control" name="question_ids" placeholder="题目ID，逗号分隔，如 1,2,5">
+        </div>
+        <label class="form-label mb-1">模型（不选=全部启用）</label>
+        <div class="mb-2">
+          {% for m in models %}<label class="d-block"><input type="checkbox" name="model_ids" value="{{ m.id }}"> {{ m.display_name }}</label>
+          {% else %}<div class="text-muted small">无启用模型</div>{% endfor %}
+        </div>
+        <label class="mb-2 d-block"><input type="checkbox" name="judge_enabled" checked> 同时进行 AI 判定分析</label>
+        <label class="mb-2 d-block"><input type="checkbox" name="enabled" checked> 创建后立即启用</label>
+        <button class="btn btn-primary w-100">保存任务</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <h5>定时任务</h5>
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>名称</th><th>cron</th><th>范围</th><th>启用</th><th>下次运行</th><th>上次</th><th></th></tr></thead>
+    <tbody>
+    {% for s in schedules %}
+    <tr>
+      <td>{{ s.name }}</td>
+      <td class="small"><code>{{ s.cron }}</code></td>
+      <td class="small">{{ s.scope }}{{ '·'~s.category if s.category }}{{ ' ·判定' if s.judge_enabled }}</td>
+      <td>{{ '✅' if s.enabled else '⛔' }}</td>
+      <td class="small">{{ next_runs[s.id] or '—' }}</td>
+      <td class="small">{{ s.last_run_at.strftime('%m-%d %H:%M') if s.last_run_at else '—' }}</td>
+      <td class="text-nowrap">
+        <form method="post" action="/schedules/{{ s.id }}/run-now" class="d-inline"><button class="btn btn-link btn-sm p-0">立即运行</button></form>
+        <form method="post" action="/schedules/{{ s.id }}/toggle" class="d-inline"><button class="btn btn-link btn-sm p-0">{{ '停用' if s.enabled else '启用' }}</button></form>
+        <form method="post" action="/schedules/{{ s.id }}/delete" class="d-inline" onsubmit="return confirm('删除该任务？')"><button class="btn btn-link btn-sm p-0 text-danger">删除</button></form>
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="7" class="text-muted">暂无定时任务</td></tr>{% endfor %}
+    </tbody></table>
+
+    <h5 class="mt-3">最近报警</h5>
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>时间</th><th>标题</th><th>状态</th></tr></thead>
+    <tbody>
+    {% for a in alerts %}
+    <tr>
+      <td class="small text-nowrap">{{ (a.sent_at or a.created_at).strftime('%m-%d %H:%M') if (a.sent_at or a.created_at) }}</td>
+      <td class="small">{{ a.title }}</td>
+      <td><span class="badge text-bg-{{ 'success' if a.status=='sent' else 'secondary' if a.status=='skipped' else 'danger' }}">{{ a.status }}</span></td>
+    </tr>
+    {% else %}<tr><td colspan="3" class="text-muted">暂无报警</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</div>
+{% endblock %}

@@ -18,7 +18,7 @@ from app.adapters.registry import get_enabled_adapters, get_judge_adapter
 from app.config import settings
 from app.database import SessionLocal
 from app.models import EvalResult, LLMModel, QALog, Question, RunBatch, StandardAnswer
-from app.services import eval_service
+from app.services import eval_service, notify_service
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +191,13 @@ def run_batch_job(
         batch.status = "done"
         batch.finished_at = datetime.now()
         db.commit()
+
+        # 命中异常则报警（飞书）；失败不影响批次结果
+        if alert:
+            try:
+                notify_service.alert_batch(db, batch)
+            except Exception:  # noqa: BLE001
+                logger.exception("批次 %s 报警发送异常", batch_id)
     except Exception:  # noqa: BLE001 批次级兜底：标记失败并记录，MVP 不做重试队列
         db.rollback()
         b = db.get(RunBatch, batch_id)

@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     ask_timeout: float = 60.0
     ask_max_retries: int = 2
 
+    # ---- 定时调度（M2）----
+    scheduler_timezone: str = "Asia/Shanghai"
+
+    # ---- 飞书报警（M2）----
+    alert_webhook_url: str | None = None    # 飞书自定义群机器人 Webhook
+    alert_webhook_secret: str | None = None  # 可选：机器人"加签"密钥
+
     @property
     def database_url(self) -> str:
         if self.database_url_override:
