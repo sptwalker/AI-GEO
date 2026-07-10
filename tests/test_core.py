@@ -145,6 +145,15 @@ def test_normalize_coerces_variant_values():
     assert "字段异常" not in out.reason and "无法解析" not in out.reason
 
 
+def test_adversarial_templates_format():
+    from app.routers.adversarial import ADVERSARIAL_TEMPLATES
+
+    assert len(ADVERSARIAL_TEMPLATES) >= 5
+    for t in ADVERSARIAL_TEMPLATES:
+        q = t["q"].format(product="某产品")
+        assert "某产品" in q and "{product}" not in q and t["type"]
+
+
 if __name__ == "__main__":
     for _name, _fn in list(globals().items()):
         if _name.startswith("test_") and callable(_fn):

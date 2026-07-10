@@ -1,69 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
-<h4 class="mb-3">概览</h4>
-<div class="row g-3 mb-4">
-  {% for label, key, cls in [("题目","questions","primary"),("标准答案","answers","info"),("启用模型","models","secondary"),("问答记录","logs","dark"),("中高危","highrisk","danger"),("判定准确率","accuracy","success")] %}
-  <div class="col-6 col-md-2">
-    <div class="card text-bg-{{ cls }}"><div class="card-body py-2">
-      <div class="small">{{ label }}</div>
-      <div class="fs-4 fw-bold">{{ stats[key] }}</div>
+<h4 class="mb-3">数据看板</h4>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="card text-bg-light h-100"><div class="card-body text-center py-3">
+      <div class="small text-muted">整体合规正确率</div>
+      <div class="fs-1 fw-bold text-{{ 'success' if charts.compliance>=80 else 'warning' if charts.compliance>=60 else 'danger' }}">{{ charts.compliance }}%</div>
+      <div class="small text-muted">判定为"正常"的占比</div>
     </div></div>
   </div>
-  {% endfor %}
-</div>
-<h5>最近批次</h5>
-<table class="table table-sm bg-white align-middle">
-<thead><tr><th>ID</th><th>名称</th><th>状态</th><th>总数</th><th>成功</th><th>失败</th><th>报警</th><th>时间</th><th></th></tr></thead>
-<tbody>
-{% for b in recent %}
-<tr>
-  <td>{{ b.id }}</td><td>{{ b.name }}</td>
-  <td><span class="badge text-bg-{{ 'success' if b.status=='done' else 'danger' if b.status=='failed' else 'secondary' }}">{{ b.status }}</span></td>
-  <td>{{ b.total }}</td><td>{{ b.success_count }}</td><td>{{ b.fail_count }}</td>
-  <td>{% if b.alert_count %}<span class="text-danger fw-bold">{{ b.alert_count }}</span>{% else %}0{% endif %}</td>
-  <td class="small">{{ b.created_at.strftime('%m-%d %H:%M') if b.created_at }}</td>
-  <td><a href="/runs/{{ b.id }}">详情</a></td>
-</tr>
-{% else %}<tr><td colspan="9" class="text-muted">暂无批次，去 <a href="/runs">运行</a> 发起一次。</td></tr>{% endfor %}
-</tbody></table>
-
-<div class="row mt-3">
-  <div class="col-lg-7">
-    <h5>分模型判定统计</h5>
-    <table class="table table-sm bg-white align-middle">
-    <thead><tr><th>模型</th><th>问答</th><th style="width:220px">通过/关注/失败</th><th>均分</th></tr></thead>
-    <tbody>
-    {% for s in model_stats %}
-    <tr>
-      <td class="small">{{ s.name }}</td>
-      <td>{{ s.total }}</td>
-      <td>
-        <div class="progress" style="height:16px" title="通过{{ s.pass }} / 关注{{ s.warn }} / 失败{{ s.fail }}">
-          <div class="progress-bar bg-success" style="width:{{ s.pass_pct }}%"></div>
-          <div class="progress-bar bg-warning" style="width:{{ s.warn_pct }}%"></div>
-          <div class="progress-bar bg-danger" style="width:{{ s.fail_pct }}%"></div>
-        </div>
-        <span class="small text-muted">{{ s.pass }}/{{ s.warn }}/{{ s.fail }}</span>
-      </td>
-      <td>{{ s.avg }}</td>
-    </tr>
-    {% else %}<tr><td colspan="4" class="text-muted">暂无判定数据</td></tr>{% endfor %}
-    </tbody></table>
-  </div>
-  <div class="col-lg-5">
-    <h5>近 14 天趋势</h5>
-    <div class="card card-body">
-      <svg viewBox="0 0 {{ chart_w }} {{ chart_h }}" width="100%" height="140" preserveAspectRatio="xMidYMid meet">
-        {% for c in chart %}
-        <rect x="{{ c.x }}" y="{{ c.total_y }}" width="{{ c.bw }}" height="{{ c.total_h }}" fill="#adb5bd">
-          <title>{{ c.label }}：问答 {{ c.total }}，失败 {{ c.fail }}</title>
-        </rect>
-        {% if c.fail_h %}<rect x="{{ c.x }}" y="{{ c.fail_y }}" width="{{ c.bw }}" height="{{ c.fail_h }}" fill="#dc3545"/>{% endif %}
-        <text x="{{ c.x + c.bw/2 }}" y="{{ chart_h - 2 }}" font-size="9" text-anchor="middle" fill="#888">{{ c.label }}</text>
-        {% endfor %}
-      </svg>
-      <div class="small text-muted"><span style="color:#adb5bd">■</span> 问答量　<span style="color:#dc3545">■</span> 失败(fail)　（悬停看数值）</div>
+  <div class="col-6 col-md-9">
+    <div class="row g-2 h-100">
+      {% for label, key, cls in [("题目","questions","primary"),("标准答案","answers","info"),("启用模型","models","secondary"),("问答记录","logs","dark"),("中高危","highrisk","danger"),("判定准确率","accuracy","success")] %}
+      <div class="col-6 col-md-4">
+        <div class="card text-bg-{{ cls }} h-100"><div class="card-body py-2">
+          <div class="small">{{ label }}</div><div class="fs-4 fw-bold">{{ stats[key] }}</div>
+        </div></div>
+      </div>
+      {% endfor %}
     </div>
   </div>
 </div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-8"><div class="card card-body"><h6>各模型高危趋势（近 7 天）</h6><canvas id="trendChart" height="90"></canvas></div></div>
+  <div class="col-lg-4"><div class="card card-body"><h6>污染类型分布（负面/竞品动态）</h6><canvas id="pollutionChart" height="180"></canvas></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6"><div class="card card-body"><h6>风险问题 TOP 排行</h6><canvas id="riskTopChart" height="150"></canvas></div></div>
+  <div class="col-lg-6">
+    <h6>分模型判定统计</h6>
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>模型</th><th>问答</th><th style="width:200px">通过/关注/失败</th><th>均分</th></tr></thead>
+    <tbody>
+    {% for s in model_stats %}
+    <tr><td class="small">{{ s.name }}</td><td>{{ s.total }}</td>
+      <td><div class="progress" style="height:16px" title="通过{{ s.pass }}/关注{{ s.warn }}/失败{{ s.fail }}">
+        <div class="progress-bar bg-success" style="width:{{ s.pass_pct }}%"></div>
+        <div class="progress-bar bg-warning" style="width:{{ s.warn_pct }}%"></div>
+        <div class="progress-bar bg-danger" style="width:{{ s.fail_pct }}%"></div>
+      </div></td><td>{{ s.avg }}</td></tr>
+    {% else %}<tr><td colspan="4" class="text-muted">暂无判定数据</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</div>
+
+<h6>最近批次</h6>
+<table class="table table-sm bg-white align-middle">
+<thead><tr><th>ID</th><th>名称</th><th>状态</th><th>总/成/败</th><th>报警</th><th></th></tr></thead>
+<tbody>
+{% for b in recent %}
+<tr><td>{{ b.id }}</td><td class="small">{{ b.name }}</td>
+  <td><span class="badge text-bg-{{ 'success' if b.status=='done' else 'danger' if b.status=='failed' else 'secondary' }}">{{ b.status }}</span></td>
+  <td>{{ b.total }}/{{ b.success_count }}/{{ b.fail_count }}</td>
+  <td>{% if b.alert_count %}<span class="text-danger fw-bold">{{ b.alert_count }}</span>{% else %}0{% endif %}</td>
+  <td><a href="/runs/{{ b.id }}">详情</a></td></tr>
+{% else %}<tr><td colspan="6" class="text-muted">暂无批次</td></tr>{% endfor %}
+</tbody></table>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const C = {{ charts|tojson }};
+const PAL = ['#0d6efd','#dc3545','#ffc107','#20c997','#6f42c1','#fd7e14','#0dcaf0','#6c757d'];
+if (C.model_trend.labels.length) new Chart(document.getElementById('trendChart'), {
+  type:'line',
+  data:{labels:C.model_trend.labels, datasets:C.model_trend.datasets.map((d,i)=>({...d, borderColor:PAL[i%PAL.length], backgroundColor:PAL[i%PAL.length], tension:.3}))},
+  options:{plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true, title:{display:true,text:'高危条数'}}}}
+});
+new Chart(document.getElementById('pollutionChart'), {
+  type:'doughnut',
+  data:{labels:C.pollution.labels, datasets:[{data:C.pollution.data, backgroundColor:['#dc3545','#fd7e14','#6f42c1','#ffc107']}]},
+  options:{plugins:{legend:{position:'bottom'}}}
+});
+new Chart(document.getElementById('riskTopChart'), {
+  type:'bar',
+  data:{labels:C.risk_top.labels, datasets:[{label:'高危条数', data:C.risk_top.data, backgroundColor:'#dc3545'}]},
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}}}
+});
+</script>
 {% endblock %}

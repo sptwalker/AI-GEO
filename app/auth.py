@@ -59,10 +59,20 @@ def require_user(request: Request) -> str:
 
 
 def require_admin(request: Request) -> str:
-    """依赖：需 admin 角色（写操作）。"""
+    """依赖：需 admin 角色（管理类写操作）。"""
     user = current_user(request)
     if not user:
         raise NotAuthenticated()
     if current_role(request) != "admin":
+        raise NotAuthorized()
+    return user
+
+
+def require_reviewer(request: Request) -> str:
+    """依赖：需 admin 或 reviewer 角色（复核类操作：标记/改标准答案）。"""
+    user = current_user(request)
+    if not user:
+        raise NotAuthenticated()
+    if current_role(request) not in ("admin", "reviewer"):
         raise NotAuthorized()
     return user

@@ -122,6 +122,7 @@ async def _eval_groups(
                 )
                 out["eval"] = merged
                 out["vote_detail"] = detail
+                out["standard"] = std_map[q.id]  # 溯源：记录判定所依据的标准答案快照
             if samples > 1 and len([a for a in answers if a]) >= 2:
                 out["cons"] = await eval_service.judge_consistency(
                     judge_adapter,
@@ -245,7 +246,7 @@ def _write_eval_results(db: Session, results: list[dict], rep: dict, batch_id: i
                 EvalResult(
                     qa_log_id=rep_log_id,
                     judge_model=settings.judge_model_key,
-                    standard_answer_snapshot=None,
+                    standard_answer_snapshot=r.get("standard"),
                     is_correct=ev.is_correct,
                     correctness_score=ev.correctness_score,
                     semantic_score=ev.semantic_score,

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import require_admin, require_user
@@ -17,14 +17,17 @@ router = APIRouter(dependencies=[Depends(require_user)])
 
 @router.get("/questions")
 def list_questions(
-    request: Request, db: Session = Depends(get_db), q: str = "", category: str = ""
+    request: Request, db: Session = Depends(get_db), q: str = "", category: str = "", page: int = 1
 ):
+    page = max(1, page)
+    size = 100
     stmt = select(Question).order_by(Question.id.desc())
     if q:
         stmt = stmt.where(Question.content.contains(q))
     if category:
         stmt = stmt.where(Question.category == category)
-    questions = list(db.scalars(stmt.limit(500)))
+    questions = list(db.scalars(stmt.limit(size).offset((page - 1) * size)))
+    total = db.scalar(select(func.count(Question.id))) or 0
     cats = [c for c in db.scalars(select(Question.category).distinct()) if c]
     return templates.TemplateResponse(
         request,
@@ -34,6 +37,9 @@ def list_questions(
             "cats": cats,
             "q": q,
             "category": category,
+            "page": page,
+            "has_next": len(questions) == size,
+            "total": total,
             "imported": request.query_params.get("imported"),
             "skipped": request.query_params.get("skipped"),
             "failed": request.query_params.get("failed"),

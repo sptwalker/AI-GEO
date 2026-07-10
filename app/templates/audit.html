@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h5>操作日志（审计溯源）</h5>
+<p class="text-muted small">记录所有写操作：谁、何时、方法、路径、结果。用于合规审计与问题溯源（不记录请求体，避免泄露密钥）。</p>
+<table class="table table-sm bg-white align-middle">
+<thead><tr><th>时间</th><th>用户</th><th>方法</th><th>路径</th><th>状态</th></tr></thead>
+<tbody>
+{% for r in rows %}
+<tr>
+  <td class="small text-nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at }}</td>
+  <td class="small">{{ r.username or '匿名' }}</td>
+  <td><span class="badge text-bg-secondary">{{ r.method }}</span></td>
+  <td class="small">{{ r.path }}</td>
+  <td><span class="badge text-bg-{{ 'success' if r.status and r.status<400 else 'danger' }}">{{ r.status }}</span></td>
+</tr>
+{% else %}<tr><td colspan="5" class="text-muted">暂无记录</td></tr>{% endfor %}
+</tbody></table>
+<div class="d-flex justify-content-between">
+  <div>{% if page>1 %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ page-1 }}">← 上一页</a>{% endif %}</div>
+  <div class="text-muted">第 {{ page }} 页</div>
+  <div>{% if has_next %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ page+1 }}">下一页 →</a>{% endif %}</div>
+</div>
+{% endblock %}

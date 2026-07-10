@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app.auth import require_user
+from app.auth import require_admin, require_user
 from app.database import get_db
-from app.models import EvalResult, LLMModel, QALog, Question, RunBatch, StandardAnswer
+from app.models import AuditLog, EvalResult, LLMModel, QALog, Question, RunBatch, StandardAnswer
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
@@ -76,54 +76,76 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             }
         )
 
-    # 近 14 天趋势
-    trows = db.execute(
-        select(
-            func.date(QALog.asked_at),
-            func.count(QALog.id),
-            func.sum(case((EvalResult.verdict == "fail", 1), else_=0)),
-        )
-        .join(EvalResult, EvalResult.qa_log_id == QALog.id, isouter=True)
-        .group_by(func.date(QALog.asked_at))
-        .order_by(func.date(QALog.asked_at).desc())
-        .limit(14)
-    ).all()
-    trend = [{"date": str(d), "total": t, "fail": int(fl or 0)} for d, t, fl in trows]
-    trend.reverse()
+    # ===== Chart.js 看板数据 =====
+    total_eval = db.scalar(select(func.count(EvalResult.id))) or 0
+    normal_eval = (
+        db.scalar(select(func.count(EvalResult.id)).where(EvalResult.risk_level == "normal")) or 0
+    )
+    compliance = round(normal_eval / total_eval * 100) if total_eval else 0
 
-    # 预算 inline-SVG 柱状图几何（总量灰柱 + 失败红柱），避免模板里做数学
-    bw, gap, h = 22, 8, 90
-    max_total = max((d["total"] for d in trend), default=1) or 1
-    chart = []
-    for i, d in enumerate(trend):
-        th = round(d["total"] / max_total * h)
-        fh = round(d["fail"] / max_total * h)
-        chart.append(
-            {
-                "x": i * (bw + gap),
-                "bw": bw,
-                "total_y": h - th + 10,
-                "total_h": th,
-                "fail_y": h - fh + 10,
-                "fail_h": fh,
-                "label": d["date"][5:],
-                "total": d["total"],
-                "fail": d["fail"],
-            }
-        )
-    chart_w = max(len(trend) * (bw + gap), 1)
+    # 各模型高危趋势（折线，多序列；取数据中出现的最近 7 天）
+    mt = db.execute(
+        select(QALog.model_id, func.date(QALog.asked_at), func.count(EvalResult.id))
+        .join(EvalResult, EvalResult.qa_log_id == QALog.id)
+        .where(EvalResult.risk_level.in_(["moderate", "severe"]))
+        .group_by(QALog.model_id, func.date(QALog.asked_at))
+    ).all()
+    dates = sorted({str(d) for _m, d, _c in mt})[-7:]
+    series: dict = {}
+    for mid, d, c in mt:
+        series.setdefault(mid, {})[str(d)] = c
+    trend_datasets = [
+        {"label": name_map.get(mid, str(mid)), "data": [dc.get(dt, 0) for dt in dates]}
+        for mid, dc in series.items()
+    ]
+
+    # 风险问题 TOP 排行（高危计数）
+    rt = db.execute(
+        select(QALog.question_snapshot, func.count(EvalResult.id))
+        .join(EvalResult, EvalResult.qa_log_id == QALog.id)
+        .where(EvalResult.risk_level.in_(["moderate", "severe"]))
+        .group_by(QALog.question_snapshot)
+        .order_by(func.count(EvalResult.id).desc())
+        .limit(8)
+    ).all()
+
+    # 污染类型分布（负面/竞品动态总览）—— JSON 列在 Python 侧统计，限量防海量拉爆
+    tally = {"false_info": 0, "defamation": 0, "rumor": 0, "exaggeration": 0}
+    for pts in db.scalars(
+        select(EvalResult.pollution_types).where(EvalResult.pollution_types.is_not(None)).limit(5000)
+    ):
+        for t in pts or []:
+            if t in tally:
+                tally[t] += 1
+
+    charts = {
+        "compliance": compliance,
+        "model_trend": {"labels": dates, "datasets": trend_datasets},
+        "risk_top": {"labels": [(q or "")[:18] for q, _c in rt], "data": [c for _q, c in rt]},
+        "pollution": {
+            "labels": ["虚假信息", "负面抹黑", "不实谣言", "违规夸大"],
+            "data": [tally["false_info"], tally["defamation"], tally["rumor"], tally["exaggeration"]],
+        },
+    }
 
     recent = list(db.scalars(select(RunBatch).order_by(RunBatch.id.desc()).limit(10)))
     return templates.TemplateResponse(
         request,
         "dashboard.html",
-        {
-            "stats": stats,
-            "model_stats": model_stats,
-            "trend": trend,
-            "chart": chart,
-            "chart_w": chart_w,
-            "chart_h": h + 30,
-            "recent": recent,
-        },
+        {"stats": stats, "model_stats": model_stats, "charts": charts, "recent": recent},
+    )
+
+
+@router.get("/audit", dependencies=[Depends(require_admin)])
+def audit_log(request: Request, db: Session = Depends(get_db), page: int = 1):
+    """操作日志（审计溯源，仅 admin）。"""
+    page = max(1, page)
+    size = 100
+    rows = list(
+        db.scalars(
+            select(AuditLog).order_by(AuditLog.id.desc()).limit(size).offset((page - 1) * size)
+        )
+    )
+    return templates.TemplateResponse(
+        request, "audit.html", {"rows": rows, "page": page, "has_next": len(rows) == size}
     )

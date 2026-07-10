@@ -17,7 +17,7 @@ from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
 
-ROLES = ("admin", "viewer")
+ROLES = ("admin", "reviewer", "viewer")
 
 
 def _admin_count(db: Session) -> int:

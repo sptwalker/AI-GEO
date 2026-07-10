@@ -29,8 +29,51 @@ def list_models(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request,
         "models.html",
-        {"models": models, "key_status": key_status, "key_saved": key_saved},
+        {"models": models, "key_status": key_status, "key_saved": key_saved,
+         "error": request.query_params.get("error")},
     )
+
+
+@router.post("/models", dependencies=[Depends(require_admin)])
+def create_model(
+    model_key: str = Form(...),
+    display_name: str = Form(...),
+    adapter_type: str = Form("openai_compatible"),
+    base_url: str = Form(""),
+    model_name: str = Form(""),
+    api_key: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """UI 自助新增自定义模型（通用/垂类/私域客服，OpenAI 兼容端点）。"""
+    model_key = model_key.strip()
+    if not model_key or not display_name.strip():
+        return RedirectResponse("/models?error=invalid", status_code=303)
+    if db.scalar(select(LLMModel).where(LLMModel.model_key == model_key)):
+        return RedirectResponse("/models?error=exists", status_code=303)
+    cfg = {"api_key": api_key.strip()} if api_key.strip() else None
+    db.add(
+        LLMModel(
+            model_key=model_key,
+            display_name=display_name.strip(),
+            adapter_type=adapter_type if adapter_type in ("openai_compatible", "web_automation") else "openai_compatible",
+            base_url=base_url.strip() or None,
+            model_name=model_name.strip() or None,
+            api_key_env=f"{model_key.upper()}_API_KEY",
+            enabled=True,
+            config=cfg,
+        )
+    )
+    db.commit()
+    return RedirectResponse("/models", status_code=303)
+
+
+@router.post("/models/{mid}/delete", dependencies=[Depends(require_admin)])
+def delete_model(mid: int, db: Session = Depends(get_db)):
+    m = db.get(LLMModel, mid)
+    if m:
+        db.delete(m)
+        db.commit()
+    return RedirectResponse("/models", status_code=303)
 
 
 @router.post("/models/{mid}/save", dependencies=[Depends(require_admin)])

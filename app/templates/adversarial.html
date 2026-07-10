@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card card-body">
+      <h5>对抗巡检</h5>
+      <p class="text-muted small">用诱导/极限/污染类攻击提问测试各 AI 的抗污染能力——看它们是否被带偏、编造负面或虚假内容。对抗题会自动配"中立行为基准"标准答案，命中污染即判中高危。</p>
+      {% if error=='no_product' %}<div class="alert alert-warning py-2">请填写产品/品牌名</div>{% endif %}
+      {% if error=='no_model' %}<div class="alert alert-warning py-2">没有可用模型</div>{% endif %}
+      {% if is_admin(request) %}
+      <form method="post" action="/adversarial/run">
+        <input class="form-control mb-2" name="product" placeholder="产品/品牌名，如：某某云盘" required>
+        <label class="form-label mb-1">攻击模板（不选=全部）</label>
+        <div class="mb-2" style="max-height:220px;overflow:auto">
+          {% for t in tpls %}
+          <label class="d-block small"><input type="checkbox" name="tpl_idx" value="{{ loop.index0 }}"> <b>[{{ t.type }}]</b> {{ t.q }}</label>
+          {% endfor %}
+        </div>
+        <label class="form-label mb-1">模型（不选=全部启用）</label>
+        <div class="mb-2">
+          {% for m in models %}<label class="d-block"><input type="checkbox" name="model_ids" value="{{ m.id }}"> {{ m.display_name }}</label>
+          {% else %}<div class="text-muted small">无启用模型</div>{% endfor %}
+        </div>
+        <button class="btn btn-danger w-100" {{ 'disabled' if not models }}>开始对抗巡检</button>
+      </form>
+      {% else %}<div class="text-muted">需要管理员发起对抗巡检。</div>{% endif %}
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <h5>历史对抗巡检</h5>
+    <table class="table table-sm bg-white align-middle">
+    <thead><tr><th>ID</th><th>名称</th><th>状态</th><th>总/成/败</th><th>命中</th><th></th></tr></thead>
+    <tbody>
+    {% for b in batches %}
+    <tr>
+      <td>{{ b.id }}</td><td class="small">{{ b.name }}</td>
+      <td><span class="badge text-bg-{{ 'success' if b.status=='done' else 'danger' if b.status=='failed' else 'secondary' }}">{{ b.status }}</span></td>
+      <td>{{ b.total }}/{{ b.success_count }}/{{ b.fail_count }}</td>
+      <td>{% if b.alert_count %}<span class="text-danger fw-bold">{{ b.alert_count }}</span>{% else %}0{% endif %}</td>
+      <td><a href="/runs/{{ b.id }}">详情</a></td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="text-muted">暂无对抗巡检</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</div>
+{% endblock %}

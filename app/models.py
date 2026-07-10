@@ -183,6 +183,9 @@ class EvalResult(TimestampMixin, Base):
     label_risk: Mapped[str | None] = mapped_column(String(16))  # 人工认定的正确风险级
     label_note: Mapped[str | None] = mapped_column(String(512))
     labeled_by: Mapped[str | None] = mapped_column(String(64))
+    flagged: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0"), index=True
+    )  # M6 疑难案例标记（复核后台）
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     qa_log: Mapped["QALog"] = relationship(back_populates="eval")
@@ -241,7 +244,7 @@ class AlertLog(TimestampMixin, Base):
 
 
 class User(TimestampMixin, Base):
-    """后台用户（M4）。role：admin=全权，viewer=只读（可查询/导出，不能改动）。"""
+    """后台用户（M4/M6）。role：admin=全权，reviewer=复核(可标记/改答案)，viewer=只读。"""
 
     __tablename__ = "user"
 
@@ -251,3 +254,16 @@ class User(TimestampMixin, Base):
     salt: Mapped[str] = mapped_column(String(64))
     role: Mapped[str] = mapped_column(String(16), default="viewer", index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class AuditLog(TimestampMixin, Base):
+    """操作日志（M6）：记录写操作(谁/何时/做了什么/结果)，用于审计与溯源。"""
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(BigIntPk, primary_key=True, autoincrement=True)
+    username: Mapped[str | None] = mapped_column(String(64), index=True)
+    method: Mapped[str] = mapped_column(String(8))
+    path: Mapped[str] = mapped_column(String(255), index=True)
+    status: Mapped[int | None] = mapped_column(Integer)
+    detail: Mapped[str | None] = mapped_column(String(512))

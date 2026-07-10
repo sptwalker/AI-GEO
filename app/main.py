@@ -12,7 +12,8 @@ from app import models  # noqa: F401  确保 ORM 模型注册到 Base.metadata
 from app.auth import NotAuthenticated, NotAuthorized
 from app.bootstrap import ensure_schema_and_seed
 from app.config import settings
-from app.routers import answers, auth, logs, pages, questions, runs, schedules, users
+from app.middleware import AuditMiddleware
+from app.routers import adversarial, answers, auth, logs, pages, questions, review, runs, schedules, users
 from app.routers import models as models_router
 
 logging.basicConfig(
@@ -36,6 +37,8 @@ async def lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="AI-GEO 问答内容监控", lifespan=lifespan)
+    # 先加审计中间件、再加会话中间件：会话在外层，审计内层可读到登录用户
+    app.add_middleware(AuditMiddleware)
     app.add_middleware(
         SessionMiddleware, secret_key=settings.app_secret, max_age=86400
     )
@@ -63,6 +66,8 @@ def create_app() -> FastAPI:
         logs.router,
         schedules.router,
         users.router,
+        review.router,
+        adversarial.router,
     ):
         app.include_router(r)
     return app

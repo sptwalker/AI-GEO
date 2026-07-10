@@ -2,6 +2,22 @@
 {% block content %}
 <h5>模型配置</h5>
 <p class="text-muted small">密钥可在卡片内直接填写（保存到数据库），或用环境变量 <code>*_API_KEY</code> 配置；两者都配时以卡片填写的为准。base_url / model_name 以各家官方文档为准；未配置密钥的模型即使启用也会被自动跳过。</p>
+{% if is_admin(request) %}
+<details class="mb-3"><summary class="btn btn-sm btn-outline-primary">+ 新增自定义模型（通用/垂类/私域客服）</summary>
+  <form method="post" action="/models" class="card card-body mt-2">
+    <div class="row g-2">
+      <div class="col-md-3"><input class="form-control form-control-sm" name="model_key" placeholder="唯一标识 如 zhipu" required></div>
+      <div class="col-md-3"><input class="form-control form-control-sm" name="display_name" placeholder="显示名 如 智谱GLM" required></div>
+      <div class="col-md-6"><input class="form-control form-control-sm" name="base_url" placeholder="base_url 如 https://open.bigmodel.cn/api/paas/v4"></div>
+      <div class="col-md-4"><input class="form-control form-control-sm" name="model_name" placeholder="model_name 如 glm-4"></div>
+      <div class="col-md-4"><input class="form-control form-control-sm" type="password" name="api_key" placeholder="API Key（可选）"></div>
+      <div class="col-md-2"><select class="form-select form-select-sm" name="adapter_type"><option value="openai_compatible">OpenAI兼容</option><option value="web_automation">网页自动化</option></select></div>
+      <div class="col-md-2"><button class="btn btn-sm btn-primary w-100">创建</button></div>
+    </div>
+    <div class="text-muted small mt-1">私域AI客服/行业垂类：填其 OpenAI 兼容端点即可，无需改代码。</div>
+  </form>
+</details>
+{% endif %}
 <div class="row g-3">
 {% for m in models %}
 <div class="col-md-6">
@@ -41,6 +57,7 @@
         {% if is_admin(request) %}
         <button type="button" class="btn btn-sm btn-outline-info" onclick="testModel('{{ m.id }}', this)">测试</button>
         <button class="btn btn-sm btn-primary">保存</button>
+        <button class="btn btn-sm btn-outline-danger" formaction="/models/{{ m.id }}/delete" formnovalidate onclick="return confirm('删除该模型？')">删除</button>
         {% else %}<span class="text-muted small">只读</span>{% endif %}
       </div>
     </div>

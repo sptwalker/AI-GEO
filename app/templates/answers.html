@@ -12,12 +12,12 @@
       <td>{{ ans.content }}</td>
       <td>v{{ ans.version }}</td>
       <td class="small">{{ ans.source or '' }}</td>
-      <td>{% if is_admin(request) %}<form method="post" action="/answers/{{ ans.id }}/delete" onsubmit="return confirm('删除？')"><button class="btn btn-link btn-sm text-danger p-0">删除</button></form>{% else %}—{% endif %}</td>
+      <td>{% if can_review(request) %}<form method="post" action="/answers/{{ ans.id }}/delete" onsubmit="return confirm('删除？')"><button class="btn btn-link btn-sm text-danger p-0">删除</button></form>{% else %}—{% endif %}</td>
     </tr>
     {% else %}<tr><td colspan="5" class="text-muted">暂无标准答案</td></tr>{% endfor %}
     </tbody></table>
   </div>
-  {% if is_admin(request) %}
+  {% if can_review(request) %}
   <div class="col-lg-4">
     <div class="card card-body">
       <h6>录入 / 更新标准答案</h6>

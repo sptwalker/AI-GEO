@@ -36,7 +36,7 @@
       {% if log.eval.labeled %}<br><span class="badge text-bg-dark" title="人工标注">人工:{{ RISK_CN.get(log.eval.label_risk, log.eval.label_risk) }}</span>{% endif %}</td>
   <td class="small">{{ (log.eval.pollution_types or [])|join('/') or '—' }}</td>
   <td class="small">{{ log.eval.correctness_score }}/{{ log.eval.semantic_score }}</td>
-  <td>{% if is_admin(request) %}
+  <td>{% if can_review(request) %}
     <form method="post" action="/evals/{{ log.eval.id }}/label" class="d-flex gap-1">
       <select name="label_risk" class="form-select form-select-sm" style="width:auto">
         {% for v in ['normal','minor','moderate','severe'] %}<option value="{{ v }}" {{ 'selected' if (log.eval.label_risk or log.eval.risk_level)==v }}>{{ RISK_CN[v] }}</option>{% endfor %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h5 class="mb-0">人工复核后台</h5>
+  <div class="btn-group btn-group-sm">
+    <a class="btn btn-outline-secondary {{ 'active' if show=='pending' }}" href="/review?show=pending">待复核(高危未标)</a>
+    <a class="btn btn-outline-secondary {{ 'active' if show=='flagged' }}" href="/review?show=flagged">疑难</a>
+    <a class="btn btn-outline-secondary {{ 'active' if show=='all' }}" href="/review?show=all">全部</a>
+  </div>
+</div>
+<p class="text-muted small">审核机器判定→标注正确风险级(回流纠偏裁判)、标记疑难、就地修正标准答案。</p>
+
+<table class="table table-sm bg-white align-middle">
+<thead><tr><th>模型</th><th>问题/回答</th><th>机器判定</th><th>标注正确级</th><th>疑难</th><th>标准答案(可改)</th></tr></thead>
+<tbody>
+{% for ev, log in rows %}
+<tr>
+  <td class="small">{{ model_names.get(log.model_id, log.model_id) }}</td>
+  <td style="max-width:340px"><div class="small text-muted">{{ log.question_snapshot }}</div>
+      <div class="small">{{ (log.answer_text or log.error_msg or '')[:160] }}</div></td>
+  <td>
+    <span class="badge text-bg-{{ RISK_CLS.get(ev.risk_level,'secondary') }}">{{ RISK_CN.get(ev.risk_level, ev.risk_level) }}</span>
+    <div class="small text-muted" style="max-width:220px" title="{{ ev.reason }}">{{ (ev.reason or '')[:60] }}</div>
+    {% if ev.labeled %}<span class="badge text-bg-dark">人工:{{ RISK_CN.get(ev.label_risk, ev.label_risk) }}</span>{% endif %}
+  </td>
+  <td>
+    <form method="post" action="/evals/{{ ev.id }}/label" class="d-flex gap-1">
+      <select name="label_risk" class="form-select form-select-sm" style="width:auto">
+        {% for v in ['normal','minor','moderate','severe'] %}<option value="{{ v }}" {{ 'selected' if (ev.label_risk or ev.risk_level)==v }}>{{ RISK_CN[v] }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-sm btn-primary">确认</button>
+    </form>
+  </td>
+  <td><form method="post" action="/evals/{{ ev.id }}/flag"><button class="btn btn-sm {{ 'btn-warning' if ev.flagged else 'btn-outline-warning' }}">{{ '已标' if ev.flagged else '标疑难' }}</button></form></td>
+  <td style="min-width:220px">
+    <form method="post" action="/answers/save">
+      <input type="hidden" name="question_id" value="{{ log.question_id }}">
+      <textarea class="form-control form-control-sm mb-1" name="content" rows="2" placeholder="修正标准答案">{{ std.get(log.question_id).content if std.get(log.question_id) else '' }}</textarea>
+      <button class="btn btn-sm btn-outline-success">保存标准答案</button>
+    </form>
+  </td>
+</tr>
+{% else %}<tr><td colspan="6" class="text-muted">无待复核项 🎉</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}

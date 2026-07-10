@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_admin, require_user
+from app.auth import require_admin, require_reviewer, require_user
 from app.database import get_db
 from app.models import EvalResult, LLMModel, QALog
 from app.services import export_service
@@ -117,14 +117,14 @@ def export_logs(
     )
 
 
-@router.post("/evals/{eid}/override", dependencies=[Depends(require_admin)])
+@router.post("/evals/{eid}/override", dependencies=[Depends(require_reviewer)])
 def override_eval(
     request: Request,
     eid: int,
     verdict: str = Form(...),
     reason: str = Form(""),
     db: Session = Depends(get_db),
-    user: str = Depends(require_admin),
+    user: str = Depends(require_reviewer),
 ):
     """人工复核：覆盖裁判结论并留痕。"""
     ev = db.get(EvalResult, eid)
@@ -137,14 +137,14 @@ def override_eval(
     return RedirectResponse(request.headers.get("referer", "/logs"), status_code=303)
 
 
-@router.post("/evals/{eid}/label", dependencies=[Depends(require_admin)])
+@router.post("/evals/{eid}/label", dependencies=[Depends(require_reviewer)])
 def label_eval(
     request: Request,
     eid: int,
     label_risk: str = Form(...),
     note: str = Form(""),
     db: Session = Depends(get_db),
-    user: str = Depends(require_admin),
+    user: str = Depends(require_reviewer),
 ):
     """人工标记正确风险级（纠错回流为 few-shot + 统计判定准确率）。"""
     ev = db.get(EvalResult, eid)
@@ -155,3 +155,13 @@ def label_eval(
         ev.labeled_by = user
         db.commit()
     return RedirectResponse(request.headers.get("referer", "/logs"), status_code=303)
+
+
+@router.post("/evals/{eid}/flag", dependencies=[Depends(require_reviewer)])
+def flag_eval(request: Request, eid: int, db: Session = Depends(get_db)):
+    """疑难案例标记/取消（复核后台）。"""
+    ev = db.get(EvalResult, eid)
+    if ev:
+        ev.flagged = not ev.flagged
+        db.commit()
+    return RedirectResponse(request.headers.get("referer", "/review"), status_code=303)
