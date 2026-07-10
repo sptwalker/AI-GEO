@@ -10,6 +10,7 @@ ponytail: 每次提问启动一次持久化上下文（简单、无泄漏），�
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 
 from app.adapters.base import AnswerResult, BaseAdapter
@@ -21,6 +22,18 @@ _DEFAULTS = {
     "poll_interval": 1.0,   # 秒：轮询回答是否还在生成
     "stable_rounds": 2,     # 连续多少轮文本不变视为生成完成
 }
+
+
+def clean_answer(text: str, patterns: list[str]) -> str:
+    """按配置的正则列表去除页面噪声（如元宝 A/B 反馈提示、页脚），并归整空白。"""
+    for pat in patterns or []:
+        try:
+            text = re.sub(pat, "", text)
+        except re.error:
+            continue
+    text = re.sub(r"[ \t]+\n", "\n", text)  # 行尾空白
+    text = re.sub(r"\n{3,}", "\n\n", text)   # 连续空行压成一个
+    return text.strip()
 
 
 class WebAutomationAdapter(BaseAdapter):
@@ -72,11 +85,13 @@ class WebAutomationAdapter(BaseAdapter):
                                     error_msg="登录态失效，请重新运行登录脚本 scripts/yuanbao_login.py",
                                 )
                         await page.fill(input_sel, question, timeout=int(timeout * 1000))
+                        await page.wait_for_timeout(400)  # 让前端注册输入，避免过早回车丢字
                         if send_sel:
                             await page.click(send_sel)
                         else:
                             await page.keyboard.press("Enter")
                         answer = await self._wait_answer(page, answer_sel, timeout)
+                        answer = clean_answer(answer, cfg.get("answer_strip"))
                     finally:
                         await ctx.close()
                 latency = int((time.monotonic() - started) * 1000)

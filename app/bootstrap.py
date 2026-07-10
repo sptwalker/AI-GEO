@@ -63,9 +63,23 @@ DEFAULT_MODELS: list[dict] = [
     ),
     dict(
         model_key="yuanbao",
-        display_name="腾讯元宝 (网页自动化·二期)",
+        display_name="腾讯元宝 (网页自动化)",
         adapter_type="web_automation",
         enabled=False,
+        config={
+            # 元宝联调所得默认值（页面改版可能需在模型配置页调整）；仍需先跑登录脚本
+            "url": "https://yuanbao.tencent.com",
+            "input_selector": ".ql-editor",
+            "answer_selector": ".agent-chat__bubble--ai",
+            "headless": True,
+            "answer_strip": [
+                r"您正在提供关于.*?反馈",
+                r"您更喜欢哪个回答",
+                r"我更喜欢这个回答",
+                r"回答\s*[12]\b",
+                r"内容由AI生成[，,][^\n]*",
+            ],
+        },
     ),
 ]
 

@@ -88,6 +88,18 @@ def test_password_hash_verify():
     assert h2 != h and salt2 != salt
 
 
+def test_clean_answer_strips_noise_keeps_content():
+    from app.adapters.web_automation import clean_answer
+
+    pats = [r"您更喜欢哪个回答", r"回答\s*[12]\b", r"内容由AI生成[，,][^\n]*"]
+    raw = "元宝是腾讯的AI助手。\n\n您更喜欢哪个回答 回答 1 回答 2\n内容由AI生成，仅供参考"
+    out = clean_answer(raw, pats)
+    assert "元宝是腾讯的AI助手" in out
+    assert "您更喜欢哪个回答" not in out and "内容由AI生成" not in out
+    # 无 patterns 时原样返回（仅归整空白）
+    assert clean_answer("正常回答", []) == "正常回答"
+
+
 if __name__ == "__main__":
     for _name, _fn in list(globals().items()):
         if _name.startswith("test_") and callable(_fn):
