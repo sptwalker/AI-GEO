@@ -9,20 +9,37 @@
   {% if batch.status in ['pending','running'] %}&nbsp;<a class="btn btn-sm btn-outline-primary" href="/runs/{{ batch.id }}">刷新</a> <span class="text-muted small">运行中，可刷新查看进度</span>{% endif %}
 </p>
 <table class="table table-sm bg-white align-middle">
-<thead><tr><th>模型</th><th>问题</th><th>回答</th><th>状态</th><th>判定</th><th>污染/偏差</th><th>分</th></tr></thead>
+<thead><tr><th>模型</th><th>问题</th><th>回答</th><th>状态</th><th>风险</th><th>污染类型</th><th>正确/语义</th></tr></thead>
 <tbody>
 {% for log in logs %}
 <tr>
   <td class="small">{{ model_names.get(log.model_id, log.model_id) }}</td>
-  <td class="small" style="max-width:220px">{{ log.question_snapshot }}</td>
-  <td class="small" style="max-width:360px">{% if log.status=='success' %}{{ log.answer_text }}{% else %}<span class="text-danger">{{ log.error_msg }}</span>{% endif %}</td>
+  <td class="small" style="max-width:200px">{{ log.question_snapshot }}</td>
+  <td class="small" style="max-width:320px">{% if log.status=='success' %}{{ log.answer_text }}{% else %}<span class="text-danger">{{ log.error_msg }}</span>{% endif %}</td>
   <td>{{ '✅' if log.status=='success' else '❌' }}</td>
   {% if log.eval %}
-  <td><span class="badge text-bg-{{ 'success' if log.eval.verdict=='pass' else 'danger' if log.eval.verdict=='fail' else 'warning' }}">{{ log.eval.verdict }}{{ '·人工' if log.eval.overridden }}</span></td>
-  <td class="small">{{ log.eval.pollution_level }} / {{ log.eval.deviation_level }}</td>
-  <td>{{ log.eval.correctness_score }}</td>
+  <td><span class="badge text-bg-{{ RISK_CLS.get(log.eval.risk_level,'secondary') }}">{{ RISK_CN.get(log.eval.risk_level, log.eval.risk_level) }}{{ '·人工' if log.eval.overridden or log.eval.labeled }}</span></td>
+  <td class="small">{{ (log.eval.pollution_types or [])|join('/') or '—' }}</td>
+  <td class="small">{{ log.eval.correctness_score }}/{{ log.eval.semantic_score }}</td>
   {% else %}<td colspan="3" class="text-muted small">—</td>{% endif %}
 </tr>
 {% else %}<tr><td colspan="7" class="text-muted">暂无记录（可能仍在运行，稍后刷新）</td></tr>{% endfor %}
 </tbody></table>
+
+{% if cons %}
+<h6 class="mt-3">口径一致性（多次采样对比）</h6>
+<table class="table table-sm bg-white align-middle">
+<thead><tr><th>模型</th><th>问题ID</th><th>采样数</th><th>一致性分</th><th>矛盾</th><th>说明</th></tr></thead>
+<tbody>
+{% for c in cons %}
+<tr>
+  <td class="small">{{ model_names.get(c.model_id, c.model_id) }}</td>
+  <td>{{ c.question_id }}</td><td>{{ c.sample_count }}</td>
+  <td>{{ c.consistency_score }}</td>
+  <td>{% if c.contradiction %}<span class="badge text-bg-danger">矛盾</span>{% else %}<span class="text-success">一致</span>{% endif %}</td>
+  <td class="small" style="max-width:360px">{{ c.reason }}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
 {% endblock %}

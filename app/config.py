@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # ---- 判定 ----
     judge_model_key: str = "deepseek"       # 判定裁判模型（须在 llm_model 启用且配好密钥）
     correctness_threshold: int = 60         # 正确性低于此分计入报警
+    judge_votes: int = 3                    # M5 多裁判投票次数（降误判/漏判）
+    default_samples: int = 1                # M5 一致性采样次数默认（1=关闭），可在批次里覆盖
+    label_fewshot_k: int = 4                # M5 few-shot 回流：注入多少条人工标记案例
 
     # ---- 采集并发 ----
     ask_concurrency: int = 6                # ponytail: 全局并发上限，够用；按模型限流二期再拆
@@ -43,9 +46,17 @@ class Settings(BaseSettings):
     # ---- 定时调度（M2）----
     scheduler_timezone: str = "Asia/Shanghai"
 
-    # ---- 飞书报警（M2）----
+    # ---- 报警（M2/M5 多渠道）----
+    alert_risk_threshold: str = "moderate"  # 达到此风险级(含)即中高危告警：moderate/severe
     alert_webhook_url: str | None = None    # 飞书自定义群机器人 Webhook
-    alert_webhook_secret: str | None = None  # 可选：机器人"加签"密钥
+    alert_webhook_secret: str | None = None  # 可选：飞书"加签"密钥
+    wecom_webhook_url: str | None = None     # M5 企业微信群机器人 Webhook
+    smtp_host: str | None = None             # M5 邮件告警
+    smtp_port: int = 465
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    alert_mail_to: str | None = None         # 逗号分隔的收件人
 
     @property
     def database_url(self) -> str:

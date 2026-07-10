@@ -21,6 +21,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -145,7 +146,7 @@ class QALog(TimestampMixin, Base):
 
 
 class EvalResult(TimestampMixin, Base):
-    """判定结果：DeepSeek 裁判对某条回答的正确性/污染/偏差评估。"""
+    """判定结果：裁判对某条回答的语义/事实/污染/一致性等多维评估（M5 增强）。"""
 
     __tablename__ = "eval_result"
 
@@ -157,19 +158,52 @@ class EvalResult(TimestampMixin, Base):
     standard_answer_snapshot: Mapped[str | None] = mapped_column(LongText)
     is_correct: Mapped[bool | None] = mapped_column(Boolean)
     correctness_score: Mapped[int | None] = mapped_column(Integer)
+    semantic_score: Mapped[int | None] = mapped_column(Integer)  # M5 语义契合度 0-100
     pollution_level: Mapped[str | None] = mapped_column(
         String(16), index=True
     )  # none/low/medium/high/severe
+    pollution_types: Mapped[list | None] = mapped_column(
+        JSON
+    )  # M5 [false_info/defamation/rumor/exaggeration]
     deviation_level: Mapped[str | None] = mapped_column(
         String(16)
     )  # none/minor/moderate/major
-    verdict: Mapped[str | None] = mapped_column(String(16), index=True)  # pass/warn/fail
+    risk_level: Mapped[str | None] = mapped_column(
+        String(16), index=True
+    )  # M5 四级：normal/minor/moderate/severe
+    verdict: Mapped[str | None] = mapped_column(String(16), index=True)  # pass/warn/fail（由风险派生）
     reason: Mapped[str | None] = mapped_column(Text)
-    details: Mapped[dict | None] = mapped_column(JSON)
+    details: Mapped[dict | None] = mapped_column(JSON)  # logic_errors/missing_info/distortions/hallucinations
+    vote_detail: Mapped[list | None] = mapped_column(JSON)  # M5 多裁判各票原始结果
     overridden: Mapped[bool] = mapped_column(Boolean, default=False)  # 人工复核覆盖标记
+    # M5 人工标记（用于纠错回流 + 准确率统计）
+    labeled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0"), index=True
+    )
+    label_risk: Mapped[str | None] = mapped_column(String(16))  # 人工认定的正确风险级
+    label_note: Mapped[str | None] = mapped_column(String(512))
+    labeled_by: Mapped[str | None] = mapped_column(String(64))
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     qa_log: Mapped["QALog"] = relationship(back_populates="eval")
+
+
+class ConsistencyResult(TimestampMixin, Base):
+    """口径一致性：同一(问题,模型)在一个批次内多次采样答案的一致性评估（M5）。"""
+
+    __tablename__ = "consistency_result"
+
+    id: Mapped[int] = mapped_column(BigIntPk, primary_key=True, autoincrement=True)
+    batch_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    question_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    model_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    sample_count: Mapped[int] = mapped_column(Integer, default=0)
+    consistency_score: Mapped[int | None] = mapped_column(Integer)  # 0-100
+    is_consistent: Mapped[bool | None] = mapped_column(Boolean)
+    contradiction: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    reason: Mapped[str | None] = mapped_column(Text)
+    detail: Mapped[dict | None] = mapped_column(JSON)  # 各样本答案摘要
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class ScheduleConfig(TimestampMixin, Base):

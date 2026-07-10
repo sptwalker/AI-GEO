@@ -5,7 +5,7 @@ SQLAlchemy 2.0 同步会话，简单稳定，避免异步 ORM 的坑。网络密
 """
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
@@ -16,6 +16,13 @@ if settings.database_url.startswith("sqlite"):
     engine = create_engine(
         settings.database_url, connect_args={"check_same_thread": False}, future=True
     )
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_fk_on(dbapi_conn, _rec):  # noqa: ANN001
+        # sqlite 默认不强制外键；开启后 ON DELETE CASCADE 才生效（与 MySQL 一致）
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
 else:
     engine = create_engine(
         settings.database_url, pool_pre_ping=True, pool_recycle=3600, future=True

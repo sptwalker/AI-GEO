@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models import RunBatch, ScheduleConfig
 from app.services import ask_service
@@ -41,5 +42,5 @@ def run_scheduled_batch(schedule_id: int) -> None:
         batch_id = batch.id
     finally:
         db.close()
-    # run_batch_job 自开会话、自兜底、跑完自动报警
-    ask_service.run_batch_job(batch_id, qids, model_ids, sc.judge_enabled)
+    # run_batch_job 自开会话、自兜底、跑完自动报警；定时批次用全局默认采样次数
+    ask_service.run_batch_job(batch_id, qids, model_ids, sc.judge_enabled, settings.default_samples)

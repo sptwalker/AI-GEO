@@ -28,13 +28,22 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "models": db.scalar(select(func.count(LLMModel.id)).where(LLMModel.enabled.is_(True)))
         or 0,
         "logs": db.scalar(select(func.count(QALog.id))) or 0,
-        "fails": db.scalar(select(func.count(EvalResult.id)).where(EvalResult.verdict == "fail"))
-        or 0,
-        "severe": db.scalar(
-            select(func.count(EvalResult.id)).where(EvalResult.pollution_level == "severe")
+        "highrisk": db.scalar(
+            select(func.count(EvalResult.id)).where(EvalResult.risk_level.in_(["moderate", "severe"]))
         )
         or 0,
     }
+    # 判定准确率：人工标记案例中裁判与人工一致的占比
+    labeled_total = db.scalar(select(func.count(EvalResult.id)).where(EvalResult.labeled.is_(True))) or 0
+    labeled_agree = (
+        db.scalar(
+            select(func.count(EvalResult.id)).where(
+                EvalResult.labeled.is_(True), EvalResult.label_risk == EvalResult.risk_level
+            )
+        )
+        or 0
+    )
+    stats["accuracy"] = f"{round(labeled_agree / labeled_total * 100)}%" if labeled_total else "—"
 
     # 分模型判定统计（含未判定的回答，故用外连接）
     name_map = {m.id: m.display_name for m in db.scalars(select(LLMModel))}

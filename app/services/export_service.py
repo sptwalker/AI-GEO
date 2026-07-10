@@ -7,7 +7,7 @@ from __future__ import annotations
 import csv
 import io
 
-LOG_HEADER = ["时间", "模型", "问题", "回答", "状态", "判定", "污染", "偏差", "正确性", "批次ID"]
+LOG_HEADER = ["时间", "模型", "问题", "回答", "状态", "风险", "污染类型", "正确性", "语义", "批次ID"]
 
 
 def build_csv(header: list[str], rows: list[list]) -> bytes:
@@ -32,10 +32,10 @@ def qalog_rows(logs, model_names: dict) -> list[list]:
                 log.question_snapshot,
                 log.answer_text if log.status == "success" else f"[失败] {log.error_msg or ''}",
                 log.status,
-                ev.verdict if ev else "",
-                ev.pollution_level if ev else "",
-                ev.deviation_level if ev else "",
+                ev.risk_level if ev else "",
+                "/".join(ev.pollution_types or []) if ev else "",
                 ev.correctness_score if ev else "",
+                ev.semantic_score if ev else "",
                 log.batch_id,
             ]
         )

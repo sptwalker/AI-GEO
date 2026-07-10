@@ -29,7 +29,7 @@ def _parse_date(s: str) -> datetime | None:
         return None
 
 
-def _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution):
+def _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution, risk=""):
     """构建带筛选的 QALog 查询（查询页与导出共用，保证口径一致）。"""
     stmt = select(QALog).order_by(QALog.id.desc())
     if question:
@@ -41,12 +41,14 @@ def _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution):
         stmt = stmt.where(QALog.asked_at >= df)
     if dt:
         stmt = stmt.where(QALog.asked_at < dt + timedelta(days=1))
-    if verdict or pollution:
+    if verdict or pollution or risk:
         stmt = stmt.join(EvalResult, EvalResult.qa_log_id == QALog.id)
         if verdict:
             stmt = stmt.where(EvalResult.verdict == verdict)
         if pollution:
             stmt = stmt.where(EvalResult.pollution_level == pollution)
+        if risk:
+            stmt = stmt.where(EvalResult.risk_level == risk)
     return stmt
 
 
@@ -60,10 +62,11 @@ def query_logs(
     date_to: str = "",
     verdict: str = "",
     pollution: str = "",
+    risk: str = "",
     page: int = 1,
 ):
     page = max(1, page)
-    stmt = _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution)
+    stmt = _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution, risk)
     logs = list(db.scalars(stmt.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE)))
     models = list(db.scalars(select(LLMModel).order_by(LLMModel.id)))
     return templates.TemplateResponse(
@@ -80,6 +83,7 @@ def query_logs(
                 "date_to": date_to,
                 "verdict": verdict,
                 "pollution": pollution,
+                "risk": risk,
             },
             "page": page,
             "has_next": len(logs) == PAGE_SIZE,
@@ -96,9 +100,10 @@ def export_logs(
     date_to: str = "",
     verdict: str = "",
     pollution: str = "",
+    risk: str = "",
 ):
     """按当前筛选导出 CSV（带 BOM，Excel 直接打开）。"""
-    stmt = _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution)
+    stmt = _filtered_stmt(question, model_id, date_from, date_to, verdict, pollution, risk)
     logs = list(db.scalars(stmt.limit(EXPORT_CAP)))
     names = {m.id: m.display_name for m in db.scalars(select(LLMModel))}
     data = export_service.build_csv(
@@ -128,5 +133,25 @@ def override_eval(
         ev.overridden = True
         if reason:
             ev.reason = (ev.reason or "") + f"\n[人工复核 {user}] {reason}"
+        db.commit()
+    return RedirectResponse(request.headers.get("referer", "/logs"), status_code=303)
+
+
+@router.post("/evals/{eid}/label", dependencies=[Depends(require_admin)])
+def label_eval(
+    request: Request,
+    eid: int,
+    label_risk: str = Form(...),
+    note: str = Form(""),
+    db: Session = Depends(get_db),
+    user: str = Depends(require_admin),
+):
+    """人工标记正确风险级（纠错回流为 few-shot + 统计判定准确率）。"""
+    ev = db.get(EvalResult, eid)
+    if ev and label_risk in ("normal", "minor", "moderate", "severe"):
+        ev.labeled = True
+        ev.label_risk = label_risk
+        ev.label_note = note or None
+        ev.labeled_by = user
         db.commit()
     return RedirectResponse(request.headers.get("referer", "/logs"), status_code=303)

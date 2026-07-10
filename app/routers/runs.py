@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.adapters.registry import get_enabled_adapters
 from app.auth import require_admin, require_user
 from app.database import get_db
-from app.models import LLMModel, QALog, Question, RunBatch
+from app.models import ConsistencyResult, LLMModel, QALog, Question, RunBatch
 from app.services import ask_service, export_service
 from app.services.ask_service import run_batch_job
 from app.templating import templates
@@ -49,6 +49,7 @@ def trigger_run(
     category: str = Form(""),
     model_ids: list[int] = Form([]),
     judge_enabled: str = Form("off"),
+    samples: str = Form("1"),
     db: Session = Depends(get_db),
     user: str = Depends(require_admin),
 ):
@@ -58,20 +59,24 @@ def trigger_run(
     adapters = get_enabled_adapters(db, model_ids or None)
     if not adapters:
         return RedirectResponse("/runs?error=no_model", status_code=303)
+    try:
+        n_samples = max(1, min(10, int(samples)))
+    except ValueError:
+        n_samples = 1
 
     batch = RunBatch(
         name=name or f"手动批次-{datetime.now():%Y%m%d-%H%M%S}",
         trigger_type="manual",
         status="pending",
         judge_enabled=(judge_enabled == "on"),
-        total=len(qids) * len(adapters),
+        total=len(qids) * len(adapters) * n_samples,
         created_by=user,
     )
     db.add(batch)
     db.commit()
     # 后台执行，页面立即返回批次详情（刷新查看进度）
     background_tasks.add_task(
-        run_batch_job, batch.id, qids, model_ids or None, judge_enabled == "on"
+        run_batch_job, batch.id, qids, model_ids or None, judge_enabled == "on", n_samples
     )
     return RedirectResponse(f"/runs/{batch.id}", status_code=303)
 
@@ -83,8 +88,11 @@ def run_detail(request: Request, bid: int, db: Session = Depends(get_db)):
         return RedirectResponse("/runs", status_code=303)
     logs = list(db.scalars(select(QALog).where(QALog.batch_id == bid).order_by(QALog.id)))
     model_names = {m.id: m.display_name for m in db.scalars(select(LLMModel))}
+    cons = list(db.scalars(select(ConsistencyResult).where(ConsistencyResult.batch_id == bid)))
     return templates.TemplateResponse(
-        request, "run_detail.html", {"batch": batch, "logs": logs, "model_names": model_names}
+        request,
+        "run_detail.html",
+        {"batch": batch, "logs": logs, "model_names": model_names, "cons": cons},
     )
 
 

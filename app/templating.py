@@ -9,3 +9,10 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 templates.env.globals["is_admin"] = lambda request: bool(
     request and request.session.get("role") == "admin"
 )
+# M5 四级风险的中文与配色（Bootstrap）
+templates.env.globals["RISK_CN"] = {
+    "normal": "正常", "minor": "轻微偏差", "moderate": "中度偏移", "severe": "严重",
+}
+templates.env.globals["RISK_CLS"] = {
+    "normal": "success", "minor": "info", "moderate": "warning", "severe": "danger",
+}

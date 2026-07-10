@@ -28,6 +28,10 @@
           {% else %}<div class="text-muted small">无启用模型，去 <a href="/models">模型配置</a> 启用</div>{% endfor %}
         </div>
         <label class="mb-2"><input type="checkbox" name="judge_enabled" checked> 同时进行 AI 判定分析</label>
+        <div class="mb-2">
+          <label class="form-label mb-1 small">一致性采样次数（&gt;1 开启口径一致性检测，成本随次数上升）</label>
+          <input class="form-control form-control-sm" type="number" name="samples" value="1" min="1" max="10">
+        </div>
         <button class="btn btn-primary w-100" {{ 'disabled' if not models }}>开始运行</button>
       </form>
       <p class="text-muted small mt-2 mb-0">运行在后台进行，提交后可在批次详情页刷新查看进度。</p>

@@ -2,7 +2,7 @@
 {% block content %}
 <h4 class="mb-3">概览</h4>
 <div class="row g-3 mb-4">
-  {% for label, key, cls in [("题目","questions","primary"),("标准答案","answers","info"),("启用模型","models","secondary"),("问答记录","logs","dark"),("判定 fail","fails","danger"),("严重污染","severe","warning")] %}
+  {% for label, key, cls in [("题目","questions","primary"),("标准答案","answers","info"),("启用模型","models","secondary"),("问答记录","logs","dark"),("中高危","highrisk","danger"),("判定准确率","accuracy","success")] %}
   <div class="col-6 col-md-2">
     <div class="card text-bg-{{ cls }}"><div class="card-body py-2">
       <div class="small">{{ label }}</div>

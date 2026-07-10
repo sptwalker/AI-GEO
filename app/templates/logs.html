@@ -9,9 +9,9 @@
   </select></div>
   <div class="col-md-2"><input class="form-control form-control-sm" type="date" name="date_from" value="{{ f.date_from }}"></div>
   <div class="col-md-2"><input class="form-control form-control-sm" type="date" name="date_to" value="{{ f.date_to }}"></div>
-  <div class="col-md-1"><select class="form-select form-select-sm" name="verdict">
-    <option value="">判定</option>
-    {% for v in ['pass','warn','fail'] %}<option value="{{ v }}" {{ 'selected' if f.verdict==v }}>{{ v }}</option>{% endfor %}
+  <div class="col-md-1"><select class="form-select form-select-sm" name="risk">
+    <option value="">风险</option>
+    {% for v in ['normal','minor','moderate','severe'] %}<option value="{{ v }}" {{ 'selected' if f.risk==v }}>{{ RISK_CN[v] }}</option>{% endfor %}
   </select></div>
   <div class="col-md-1"><select class="form-select form-select-sm" name="pollution">
     <option value="">污染</option>
@@ -19,27 +19,29 @@
   </select></div>
   <div class="col-md-1"><button class="btn btn-sm btn-primary w-100">查询</button></div>
 </form>
-{% set qs = "question=" ~ f.question ~ "&model_id=" ~ f.model_id ~ "&date_from=" ~ f.date_from ~ "&date_to=" ~ f.date_to ~ "&verdict=" ~ f.verdict ~ "&pollution=" ~ f.pollution %}
+{% set qs = "question=" ~ f.question ~ "&model_id=" ~ f.model_id ~ "&date_from=" ~ f.date_from ~ "&date_to=" ~ f.date_to ~ "&risk=" ~ f.risk ~ "&pollution=" ~ f.pollution %}
 <div class="mb-2"><a class="btn btn-sm btn-outline-success" href="/logs/export?{{ qs }}">导出 CSV（按当前筛选）</a></div>
+
 <table class="table table-sm bg-white align-middle">
-<thead><tr><th>时间</th><th>模型</th><th>问题</th><th>回答</th><th>判定</th><th>污染/偏差</th><th>分</th><th>复核</th></tr></thead>
+<thead><tr><th>时间</th><th>模型</th><th>问题</th><th>回答</th><th>风险</th><th>污染类型</th><th>正确/语义</th><th>人工标记</th></tr></thead>
 <tbody>
 {% for log in logs %}
 <tr>
   <td class="small text-nowrap">{{ log.asked_at.strftime('%Y-%m-%d %H:%M') if log.asked_at }}</td>
   <td class="small">{{ model_names.get(log.model_id, log.model_id) }}</td>
   <td class="small" style="max-width:200px">{{ log.question_snapshot }}</td>
-  <td class="small" style="max-width:320px">{% if log.status=='success' %}{{ log.answer_text }}{% else %}<span class="text-danger">失败：{{ log.error_msg }}</span>{% endif %}</td>
+  <td class="small" style="max-width:300px">{% if log.status=='success' %}{{ log.answer_text }}{% else %}<span class="text-danger">失败：{{ log.error_msg }}</span>{% endif %}</td>
   {% if log.eval %}
-  <td><span class="badge text-bg-{{ 'success' if log.eval.verdict=='pass' else 'danger' if log.eval.verdict=='fail' else 'warning' }}">{{ log.eval.verdict }}{{ '·人工' if log.eval.overridden }}</span></td>
-  <td class="small">{{ log.eval.pollution_level }} / {{ log.eval.deviation_level }}</td>
-  <td>{{ log.eval.correctness_score }}</td>
+  <td><span class="badge text-bg-{{ RISK_CLS.get(log.eval.risk_level,'secondary') }}">{{ RISK_CN.get(log.eval.risk_level, log.eval.risk_level or '—') }}</span>
+      {% if log.eval.labeled %}<br><span class="badge text-bg-dark" title="人工标注">人工:{{ RISK_CN.get(log.eval.label_risk, log.eval.label_risk) }}</span>{% endif %}</td>
+  <td class="small">{{ (log.eval.pollution_types or [])|join('/') or '—' }}</td>
+  <td class="small">{{ log.eval.correctness_score }}/{{ log.eval.semantic_score }}</td>
   <td>{% if is_admin(request) %}
-    <form method="post" action="/evals/{{ log.eval.id }}/override" class="d-flex gap-1">
-      <select name="verdict" class="form-select form-select-sm" style="width:auto">
-        {% for v in ['pass','warn','fail'] %}<option value="{{ v }}" {{ 'selected' if log.eval.verdict==v }}>{{ v }}</option>{% endfor %}
+    <form method="post" action="/evals/{{ log.eval.id }}/label" class="d-flex gap-1">
+      <select name="label_risk" class="form-select form-select-sm" style="width:auto">
+        {% for v in ['normal','minor','moderate','severe'] %}<option value="{{ v }}" {{ 'selected' if (log.eval.label_risk or log.eval.risk_level)==v }}>{{ RISK_CN[v] }}</option>{% endfor %}
       </select>
-      <button class="btn btn-sm btn-outline-secondary">改</button>
+      <button class="btn btn-sm btn-outline-secondary" title="标注正确风险，回流纠偏裁判">标</button>
     </form>
   {% else %}<span class="text-muted small">—</span>{% endif %}</td>
   {% else %}<td colspan="4" class="text-muted small">未判定</td>{% endif %}
